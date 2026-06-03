@@ -1,0 +1,13 @@
+# Uncomment to enable Azure Monitor OpenTelemetry
+# Ref: aka.ms/functions-azure-monitor-python 
+# azure-monitor-opentelemetry 
+
+azure-functions
+
+# Azure Storage (Blob, Table, Queue)
+azure-storage-blob
+azure-storage-queue
+azure-data-tables
+
+# HTTP requests (for Affinity API calls and Turnstile verification)
+requests
