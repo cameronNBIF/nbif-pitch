@@ -10,12 +10,38 @@ import logging
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from slugify import slugify
 from azure.data.tables import TableClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.queue import QueueClient
-from slugify import slugify
 
 logger = logging.getLogger(__name__)
+
+_blob_service_client = None
+_table_client_dedup = None
+_queue_client_deadletter = None
+
+def get_blob_service(connection_string: str) -> BlobServiceClient:
+    global _blob_service_client
+    if _blob_service_client is None:
+        _blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+    return _blob_service_client
+
+def get_table_client(connection_string: str, table_name: str) -> TableClient:
+    global _table_client_dedup
+    if _table_client_dedup is None:
+        _table_client_dedup = TableClient.from_connection_string(
+            connection_string, table_name=table_name
+        )
+    return _table_client_dedup
+
+def get_queue_client(connection_string: str, queue_name: str) -> QueueClient:
+    global _queue_client_deadletter
+    if _queue_client_deadletter is None:
+        _queue_client_deadletter = QueueClient.from_connection_string(
+            connection_string, queue_name=queue_name
+        )
+    return _queue_client_deadletter
 
 
 # ── Blob Storage (Submission Archive) ─────────────────────────────────────
@@ -59,7 +85,7 @@ def archive_submission(
         },
     }
 
-    blob_service = BlobServiceClient.from_connection_string(connection_string)
+    blob_service = get_blob_service(connection_string)
     blob_client = blob_service.get_blob_client(
         container=container_name, blob=blob_path
     )
@@ -89,7 +115,7 @@ def update_archive(
         updates: Dictionary of fields to merge into the archive JSON.
     """
     try:
-        blob_service = BlobServiceClient.from_connection_string(connection_string)
+        blob_service = get_blob_service(connection_string)
         blob_client = blob_service.get_blob_client(
             container=container_name, blob=blob_path
         )
@@ -134,9 +160,7 @@ def check_duplicate(
         f"{email.lower().strip()}|{business_name.lower().strip()}".encode()
     ).hexdigest()[:32]
 
-    table_client = TableClient.from_connection_string(
-        connection_string, table_name=table_name
-    )
+    table_client = get_table_client(connection_string, table_name)
 
     partition_key = fingerprint
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
@@ -178,9 +202,7 @@ def record_submission_fingerprint(
 
     timestamp_key = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
-    table_client = TableClient.from_connection_string(
-        connection_string, table_name=table_name
-    )
+    table_client = get_table_client(connection_string, table_name)
 
     entity = {
         "PartitionKey": fingerprint,
@@ -220,9 +242,7 @@ def send_to_deadletter(
     }
 
     try:
-        queue_client = QueueClient.from_connection_string(
-            connection_string, queue_name=queue_name
-        )
+        queue_client = get_queue_client(connection_string, queue_name)
         queue_client.send_message(json.dumps(message))
         logger.info(
             f"Submission {submission_id} sent to dead-letter queue. "
