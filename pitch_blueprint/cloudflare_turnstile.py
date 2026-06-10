@@ -49,8 +49,7 @@ def verify_turnstile_token(
         if not success:
             error_codes = result.get("error-codes", [])
             logger.warning(
-                f"Turnstile verification failed. "
-                f"Error codes: {error_codes}"
+                f"Turnstile verification failed. " f"Error codes: {error_codes}"
             )
         else:
             logger.info("Turnstile verification succeeded.")

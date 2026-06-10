@@ -116,7 +116,20 @@ def _send_teams_notification(
 
 def _get_config() -> dict[str, str]:
     """Load all configuration from environment variables (app settings)."""
-    return {
+
+    required_keys = [
+        "AFFINITY_API_KEY",
+        "NBIF_PITCH_SA_CONNECTION_STRING",
+        "CLOUDFLARE_TURNSTILE_SECRET_KEY",
+        "AFFINITY_LIST_ID",
+    ]
+    missing = [k for k in required_keys if k not in os.environ]
+    if missing:
+        raise RuntimeError(
+            f"Missing required environment variables: {', '.join(missing)}"
+        )
+
+    config = {
         "AFFINITY_API_KEY": os.environ["AFFINITY_API_KEY"],
         "STORAGE_CONN_STR": os.environ["NBIF_PITCH_SA_CONNECTION_STRING"],
         "TURNSTILE_SECRET": os.environ["CLOUDFLARE_TURNSTILE_SECRET_KEY"],
@@ -130,6 +143,8 @@ def _get_config() -> dict[str, str]:
         ),
         "TEAMS_WEBHOOK_URL": os.environ.get("TEAMS_WEBHOOK_URL", ""),
     }
+
+    return config
 
 
 # ── Main Function ─────────────────────────────────────────────────────────
@@ -248,11 +263,13 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
     ):
         logger.warning(f"[{submission_id}] Duplicate submission detected.")
         return func.HttpResponse(
-            json.dumps({
-                "error": "A submission with this email and business name was "
-                         "received very recently. Please wait a moment before "
-                         "resubmitting."
-            }),
+            json.dumps(
+                {
+                    "error": "A submission with this email and business name was "
+                    "received very recently. Please wait a moment before "
+                    "resubmitting."
+                }
+            ),
             status_code=409,
             mimetype="application/json",
         )
@@ -320,14 +337,14 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         logger.info(f"[{submission_id}] List entry created: {entry_id}")
 
         # Step 9: Set all field values
-        
+
         populate_list_entry(
-                    api_key,
-                    org_id,
-                    entry_id,
-                    person_id,
-                    validated_data,
-                )
+            api_key,
+            org_id,
+            entry_id,
+            person_id,
+            validated_data,
+        )
         logger.info(f"[{submission_id}] Field values populated on entry {entry_id}")
 
         affinity_success = True
@@ -376,12 +393,14 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
     )
 
     return func.HttpResponse(
-        json.dumps({
-            "status": "success",
-            "message": "Thank you for your submission. Our team will review "
-                       "your pitch and be in touch.",
-            "submission_id": submission_id,
-        }),
+        json.dumps(
+            {
+                "status": "success",
+                "message": "Thank you for your submission. Our team will review "
+                "your pitch and be in touch.",
+                "submission_id": submission_id,
+            }
+        ),
         status_code=200,
         mimetype="application/json",
     )

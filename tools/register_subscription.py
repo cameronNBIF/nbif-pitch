@@ -20,16 +20,16 @@ from dotenv import load_dotenv  # reads from local.settings.json equivalent
 # Populate these from your local.settings.json values before running.
 # Never hardcode secrets in this file.
 
-load_dotenv(".env.register")   # see note below on creating this file
+load_dotenv(".env.register")  # see note below on creating this file
 
-AZURE_CLIENT_ID           = os.environ["AZURE_CLIENT_ID"]
-AZURE_TENANT_ID           = os.environ["AZURE_TENANT_ID"]
-AZURE_CLIENT_SECRET       = os.environ["AZURE_CLIENT_SECRET"]
-GRAPH_USER_EMAIL          = os.environ["GRAPH_USER_EMAIL"]
-GRAPH_WEBHOOK_SECRET      = os.environ["GRAPH_WEBHOOK_SECRET"]
+AZURE_CLIENT_ID = os.environ["AZURE_CLIENT_ID"]
+AZURE_TENANT_ID = os.environ["AZURE_TENANT_ID"]
+AZURE_CLIENT_SECRET = os.environ["AZURE_CLIENT_SECRET"]
+GRAPH_USER_EMAIL = os.environ["GRAPH_USER_EMAIL"]
+GRAPH_WEBHOOK_SECRET = os.environ["GRAPH_WEBHOOK_SECRET"]
 STORAGE_CONNECTION_STRING = os.environ["STORAGE_CONNECTION_STRING"]
-STORAGE_TABLE_NAME        = os.environ["STORAGE_TABLE_NAME"]
-NOTIFICATION_URL          = os.environ["NOTIFICATION_URL"]   # full URL with ?code=
+STORAGE_TABLE_NAME = os.environ["STORAGE_TABLE_NAME"]
+NOTIFICATION_URL = os.environ["NOTIFICATION_URL"]  # full URL with ?code=
 
 # ── Acquire Graph token ───────────────────────────────────────────────────────
 
@@ -48,11 +48,11 @@ expiry = (datetime.now(timezone.utc) + timedelta(days=3)).strftime(
 )
 
 payload = {
-    "changeType":          "created",
-    "notificationUrl":     NOTIFICATION_URL,
-    "resource":            f"users/{GRAPH_USER_EMAIL}/mailFolders/Inbox/messages",
-    "expirationDateTime":  expiry,
-    "clientState":         GRAPH_WEBHOOK_SECRET,
+    "changeType": "created",
+    "notificationUrl": NOTIFICATION_URL,
+    "resource": f"users/{GRAPH_USER_EMAIL}/mailFolders/Inbox/messages",
+    "expirationDateTime": expiry,
+    "clientState": GRAPH_WEBHOOK_SECRET,
 }
 
 print("Registering subscription...")
@@ -80,10 +80,12 @@ table_client = TableClient.from_connection_string(
     conn_str=STORAGE_CONNECTION_STRING,
     table_name=STORAGE_TABLE_NAME,
 )
-table_client.upsert_entity({
-    "PartitionKey": "nbif",
-    "RowKey":       "graph_subscription_id",
-    "Value":        subscription_id,
-})
+table_client.upsert_entity(
+    {
+        "PartitionKey": "nbif",
+        "RowKey": "graph_subscription_id",
+        "Value": subscription_id,
+    }
+)
 
 print(f"Subscription ID written to Table Storage.")
