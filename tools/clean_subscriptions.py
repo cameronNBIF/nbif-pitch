@@ -18,9 +18,13 @@ resp = requests.get("https://graph.microsoft.com/v1.0/subscriptions", headers=he
 subs = resp.json().get("value", [])
 print(f"Found {len(subs)} subscription(s):")
 for s in subs:
-    print(f"  {s['id']} | resource: {s['resource']} | expiry: {s['expirationDateTime']}")
+    print(
+        f"  {s['id']} | resource: {s['resource']} | expiry: {s['expirationDateTime']}"
+    )
 
 # Delete all of them — register_subscription.py will create a clean one after
 for s in subs:
-    requests.delete(f"https://graph.microsoft.com/v1.0/subscriptions/{s['id']}", headers=headers)
+    requests.delete(
+        f"https://graph.microsoft.com/v1.0/subscriptions/{s['id']}", headers=headers
+    )
     print(f"  Deleted {s['id']}")
