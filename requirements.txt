@@ -11,3 +11,7 @@ requests
 
 # URL-safe slug generation for blob paths
 python-slugify
+
+# Code cleanup and formatting
+black
+flake8

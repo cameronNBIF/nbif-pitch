@@ -8,10 +8,8 @@ API_KEY = os.getenv("AFFINITY_API_KEY")
 
 BASE_URL = "https://api.affinity.co"
 
-headers = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
-}
+headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
+
 
 def get_all_lists():
     url = f"{BASE_URL}/lists"
@@ -28,6 +26,7 @@ def get_all_lists():
         print(f"ID: {lst.get('id')}")
         print(f"Name: {lst.get('name')}")
         print("-" * 50)
+
 
 if __name__ == "__main__":
     get_all_lists()

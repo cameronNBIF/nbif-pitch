@@ -21,11 +21,15 @@ _blob_service_client = None
 _table_client_dedup = None
 _queue_client_deadletter = None
 
+
 def get_blob_service(connection_string: str) -> BlobServiceClient:
     global _blob_service_client
     if _blob_service_client is None:
-        _blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        _blob_service_client = BlobServiceClient.from_connection_string(
+            connection_string
+        )
     return _blob_service_client
+
 
 def get_table_client(connection_string: str, table_name: str) -> TableClient:
     global _table_client_dedup
@@ -34,6 +38,7 @@ def get_table_client(connection_string: str, table_name: str) -> TableClient:
             connection_string, table_name=table_name
         )
     return _table_client_dedup
+
 
 def get_queue_client(connection_string: str, queue_name: str) -> QueueClient:
     global _queue_client_deadletter
@@ -86,9 +91,7 @@ def archive_submission(
     }
 
     blob_service = get_blob_service(connection_string)
-    blob_client = blob_service.get_blob_client(
-        container=container_name, blob=blob_path
-    )
+    blob_client = blob_service.get_blob_client(container=container_name, blob=blob_path)
     blob_client.upload_blob(
         json.dumps(archive_data, indent=2, default=str),
         content_type="application/json",
