@@ -1,7 +1,9 @@
 """
 validators.py
 Server-side validation for Pitch Intake Form submissions.
-Validates required fields, conditional logic, file type, and file size.
+Validates required fields and data formats.
+
+Aligned with production Affinity list fields (June 2026).
 """
 
 import logging
@@ -12,52 +14,48 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
-ALLOWED_FILE_EXTENSIONS = {".pdf", ".pptx", ".ppt"}
-ALLOWED_MIME_TYPES = {
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
-    "application/vnd.ms-powerpoint",  # .ppt
-}
-MAX_EXECUTIVE_SUMMARY_WORDS = 150
-
-VALID_CORPORATE_ENTITY_VALUES = {
-    "No",
-    "Yes — Federally",
-    "Yes — In New Brunswick",
-    "Yes — Other Province/Territory",
-}
-VALID_YES_NO = {"Yes", "No"}
-
-# Email regex — simple but effective for form validation
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
+# Valid dropdown values — must match the form <option> values exactly
+VALID_SECTORS = {
+    "Advanced Manufacturing",
+    "Agritech",
+    "Cybersecurity",
+    "Digital Health",
+    "Energy",
+    "Forestry",
+    "ICT",
+    "Other",
+}
 
-# ── Validation Functions ──────────────────────────────────────────────────
+VALID_VENTURE_STAGES = {
+    "Series A",
+    "Research or Lab Stage",
+    "Seed",
+    "Accelerator Stage",
+    "Pre-seed",
+}
+
+
+# ── Validation ────────────────────────────────────────────────────────────
 
 
 def validate_submission(
     form_data: dict[str, str],
-    file_info: dict[str, Any] | None,
-    valid_sectors: list[str] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """
-    Validate all form fields and the uploaded file.
+    Validate all form fields.
 
     Args:
-        form_data: Dictionary of form field name → value (from req.form).
-        file_info: Dictionary with keys 'filename', 'content_type', 'size_bytes',
-                   or None if no file was uploaded.
-        valid_sectors: Optional list of valid Priority Sector values.
-                       If None, sector validation is skipped (any non-empty value accepted).
+        form_data: Dictionary of form field name → value.
 
     Returns:
         Tuple of (validated_data, errors).
-        - validated_data: Cleaned/normalized form data (only populated if no errors).
-        - errors: List of human-readable error messages. Empty list = valid.
+        - validated_data: Cleaned/normalized form data.
+        - errors: List of human-readable error messages. Empty = valid.
     """
     errors = []
-    validated = {}
+    validated: dict[str, Any] = {}
 
     # ── Required text fields ──────────────────────────────────────────
 
@@ -67,7 +65,6 @@ def validate_submission(
         ("business_name", "Business Name"),
         ("email", "Email"),
         ("phone", "Phone Number"),
-        ("city", "City"),
     ]
 
     for field_key, field_label in required_text_fields:
@@ -85,141 +82,75 @@ def validate_submission(
 
     # ── Website (optional) ────────────────────────────────────────────
 
-    website = (form_data.get("website") or "").strip()
-    validated["website"] = website  # Can be empty
+    validated["website"] = (form_data.get("website") or "").strip()
 
-    # ── Sector (required, must match Affinity dropdown) ───────────────
+    # ── Priority Sector (required, dropdown) ──────────────────────────
 
     sector = (form_data.get("sector") or "").strip()
     if not sector:
-        errors.append("Sector is required.")
-    elif valid_sectors and sector not in valid_sectors:
+        errors.append("Priority Sector is required.")
+    elif sector not in VALID_SECTORS:
         errors.append(
-            f"Invalid sector: '{sector}'. Must be one of: {', '.join(valid_sectors)}."
+            f"Invalid sector: '{sector}'. "
+            f"Must be one of: {', '.join(sorted(VALID_SECTORS))}."
         )
     validated["sector"] = sector
 
-    # ── Executive Summary (required, max 150 words) ───────────────────
+    # ── Venture Stage (required, dropdown) ────────────────────────────
 
-    executive_summary = (form_data.get("executive_summary") or "").strip()
-    if not executive_summary:
-        errors.append("Executive Summary is required.")
-    else:
-        word_count = len(executive_summary.split())
-        if word_count > MAX_EXECUTIVE_SUMMARY_WORDS:
-            errors.append(
-                f"Executive Summary exceeds {MAX_EXECUTIVE_SUMMARY_WORDS} words "
-                f"(currently {word_count} words)."
-            )
-    validated["executive_summary"] = executive_summary
-
-    # ── Corporate Entity (required dropdown) ──────────────────────────
-
-    corporate_entity = (form_data.get("corporate_entity") or "").strip()
-    if not corporate_entity:
-        errors.append("Corporate entity status is required.")
-    elif corporate_entity not in VALID_CORPORATE_ENTITY_VALUES:
+    venture_stage = (form_data.get("venture_stage") or "").strip()
+    if not venture_stage:
+        errors.append("Venture Stage is required.")
+    elif venture_stage not in VALID_VENTURE_STAGES:
         errors.append(
-            f"Invalid corporate entity value: '{corporate_entity}'."
+            f"Invalid venture stage: '{venture_stage}'. "
+            f"Must be one of: {', '.join(sorted(VALID_VENTURE_STAGES))}."
         )
-    validated["corporate_entity"] = corporate_entity
+    validated["venture_stage"] = venture_stage
 
-    # ── Date of Incorporation (conditional — required if corp entity = Yes) ─
+    # ── Date of Incorporation (optional) ──────────────────────────────
 
-    is_incorporated = corporate_entity.startswith("Yes")
-    date_of_incorporation = (form_data.get("date_of_incorporation") or "").strip()
-    if is_incorporated and not date_of_incorporation:
-        errors.append(
-            "Date of Incorporation is required when a corporate entity has been established."
-        )
-    validated["date_of_incorporation"] = date_of_incorporation if is_incorporated else ""
+    validated["date_of_incorporation"] = (
+        form_data.get("date_of_incorporation") or ""
+    ).strip()
 
-    # ── Currently Raising Capital (required) ──────────────────────────
+    # ── Investment Round Size (optional, number) ──────────────────────
 
-    raising_capital = (form_data.get("raising_capital") or "").strip()
-    if not raising_capital:
-        errors.append("'Are you currently raising capital?' is required.")
-    elif raising_capital not in VALID_YES_NO:
-        errors.append(f"Invalid value for raising capital: '{raising_capital}'.")
-    validated["raising_capital"] = raising_capital
-
-    # ── Financing Amount (conditional — required if raising capital = Yes) ─
-
-    is_raising = raising_capital == "Yes"
-    financing_amount = (form_data.get("financing_amount") or "").strip()
-    if is_raising and not financing_amount:
-        errors.append(
-            "Amount of financing is required when currently raising capital."
-        )
-    elif is_raising and financing_amount:
+    round_size_raw = (form_data.get("investment_round_size") or "").strip()
+    if round_size_raw:
         try:
-            # Remove commas, dollar signs, spaces
-            cleaned = financing_amount.replace(",", "").replace("$", "").replace(" ", "")
-            validated["financing_amount"] = float(cleaned)
+            cleaned = round_size_raw.replace(",", "").replace("$", "").replace(" ", "")
+            validated["investment_round_size"] = float(cleaned)
         except ValueError:
             errors.append(
-                f"Invalid financing amount: '{financing_amount}'. Must be a number."
+                f"Invalid Investment Round Size: '{round_size_raw}'. Must be a number."
             )
     else:
-        validated["financing_amount"] = None
+        validated["investment_round_size"] = None
 
-    # ── Current Investors (optional) ──────────────────────────────────
+    # ── Potential Investment Amount (optional, number) ─────────────────
 
-    validated["current_investors"] = (form_data.get("current_investors") or "").strip()
-
-    # ── IP Reliance (required) ────────────────────────────────────────
-
-    ip_reliance = (form_data.get("ip_reliance") or "").strip()
-    if not ip_reliance:
-        errors.append("'Will the venture rely on IP?' is required.")
-    elif ip_reliance not in VALID_YES_NO:
-        errors.append(f"Invalid value for IP reliance: '{ip_reliance}'.")
-    validated["ip_reliance"] = ip_reliance
-
-    # ── IP Ownership Details (conditional — required if IP = Yes) ─────
-
-    has_ip = ip_reliance == "Yes"
-    ip_ownership_details = (form_data.get("ip_ownership_details") or "").strip()
-    if has_ip and not ip_ownership_details:
-        errors.append(
-            "IP ownership details are required when the venture relies on IP."
-        )
-    validated["ip_ownership_details"] = ip_ownership_details if has_ip else ""
-
-    # ── Pitch Deck File ───────────────────────────────────────────────
-
-    if file_info is None:
-        errors.append("Pitch Deck file is required.")
+    potential_raw = (form_data.get("potential_investment_amount") or "").strip()
+    if potential_raw:
+        try:
+            cleaned = potential_raw.replace(",", "").replace("$", "").replace(" ", "")
+            validated["potential_investment_amount"] = float(cleaned)
+        except ValueError:
+            errors.append(
+                f"Invalid Potential Investment Amount: '{potential_raw}'. "
+                f"Must be a number."
+            )
     else:
-        filename = file_info.get("filename", "")
-        content_type = file_info.get("content_type", "")
-        size_bytes = file_info.get("size_bytes", 0)
+        validated["potential_investment_amount"] = None
 
-        # Check file extension
-        ext = ""
-        if "." in filename:
-            ext = "." + filename.rsplit(".", 1)[-1].lower()
+    # ── Discovery (optional, text) ────────────────────────────────────
+    # Form label: "How did you hear about NBIF?"
 
-        if ext not in ALLOWED_FILE_EXTENSIONS:
-            errors.append(
-                f"Invalid file type: '{ext}'. Accepted types: "
-                f"{', '.join(sorted(ALLOWED_FILE_EXTENSIONS))}."
-            )
+    validated["discovery"] = (form_data.get("discovery") or "").strip()
 
-        # Check MIME type
-        if content_type and content_type not in ALLOWED_MIME_TYPES:
-            logger.warning(
-                f"Unexpected MIME type: '{content_type}' for file '{filename}'. "
-                f"Extension: '{ext}'. Proceeding with extension-based validation."
-            )
+    # ── Accelerator (optional, text — skipped in Affinity for MVP) ────
 
-        # Check file size
-        if size_bytes > MAX_FILE_SIZE_BYTES:
-            size_mb = round(size_bytes / (1024 * 1024), 1)
-            errors.append(
-                f"Pitch Deck file is too large ({size_mb} MB). "
-                f"Maximum size is {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB."
-            )
+    validated["accelerator"] = (form_data.get("accelerator") or "").strip()
 
     if errors:
         logger.info(f"Validation failed with {len(errors)} error(s): {errors}")
