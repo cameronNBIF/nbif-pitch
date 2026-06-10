@@ -13,78 +13,42 @@ Authentication: Basic auth with empty username and API key as password.
 
 import logging
 import os
-import time
+import functools
 import requests
 
 from typing import Any
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = os.getenv("AFFINITY_BASE_URL") or "https://api.affinity.co"
 
-MAX_RETRIES = 2
-RETRY_BACKOFF_SECONDS = 2
-
-
 # ── Auth & HTTP ───────────────────────────────────────────────────────────
 
 
-def _auth(api_key: str) -> tuple[str, str]:
-    """Affinity Basic Auth: empty username, API key as password."""
-    return ("", api_key)
-
-
-def _request_with_retry(
-    method: str,
-    url: str,
-    api_key: str,
-    retries: int = MAX_RETRIES,
-    **kwargs,
-) -> requests.Response:
+@functools.lru_cache(maxsize=1)
+def get_affinity_session(api_key: str) -> requests.Session:
     """
-    Make an HTTP request with retry logic and exponential backoff.
-    Does NOT retry on 4xx errors (except 429 rate limit).
+    Creates and caches an HTTP session for Affinity API.
+    Maintains a connection pool and automatically handles retries with exponential backoff.
     """
-    last_exception = None
+    session = requests.Session()
+    session.auth = ("", api_key)
 
-    for attempt in range(retries + 1):
-        try:
-            response = requests.request(
-                method, url, auth=_auth(api_key), timeout=30, **kwargs
-            )
-            response.raise_for_status()
-            return response
+    # Retry on 429 (Rate Limit) and 5xx server errors
+    retries = Retry(
+        total=3,
+        backoff_factor=2,  # Waits 2, 4, 8 seconds
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS", "POST", "PUT", "DELETE"],
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
 
-        except requests.HTTPError as e:
-            status_code = e.response.status_code if e.response is not None else 0
-
-            if 400 <= status_code < 500 and status_code != 429:
-                logger.error(
-                    f"Affinity API {status_code}: {method} {url} — "
-                    f"{e.response.text[:500] if e.response else 'N/A'}"
-                )
-                raise
-
-            last_exception = e
-            if attempt < retries:
-                wait = RETRY_BACKOFF_SECONDS * (2 ** attempt)
-                logger.warning(
-                    f"Affinity API error (attempt {attempt + 1}/{retries + 1}): "
-                    f"{status_code}. Retrying in {wait}s..."
-                )
-                time.sleep(wait)
-
-        except requests.RequestException as e:
-            last_exception = e
-            if attempt < retries:
-                wait = RETRY_BACKOFF_SECONDS * (2 ** attempt)
-                logger.warning(
-                    f"Affinity request error (attempt {attempt + 1}/{retries + 1}): "
-                    f"{e}. Retrying in {wait}s..."
-                )
-                time.sleep(wait)
-
-    raise last_exception  # type: ignore[misc]
+    logger.info("Initialized new Affinity HTTP Session with connection pooling.")
+    return session
 
 
 # ── Persons ───────────────────────────────────────────────────────────────
@@ -99,14 +63,14 @@ def resolve_or_create_person(
     """
     Find an existing Person by email, or create a new one.
     Returns the person ID.
-
-    Note: The Person is NOT the entity on the list entry (that's the Org).
-    The Person is created so it exists in Affinity's global person database
-    and can be linked manually or via future automation.
     """
-    resp = _request_with_retry(
-        "GET", f"{BASE_URL}/persons", api_key, params={"term": email}
+    session = get_affinity_session(api_key)
+
+    resp = session.request(
+        "GET", f"{BASE_URL}/persons", params={"term": email}, timeout=30
     )
+    resp.raise_for_status()
+
     data = resp.json()
     person_list = data.get("persons", data) if isinstance(data, dict) else data
 
@@ -118,16 +82,18 @@ def resolve_or_create_person(
             return person_id
 
     # Not found — create
-    resp = _request_with_retry(
+    resp = session.request(
         "POST",
         f"{BASE_URL}/persons",
-        api_key,
         json={
             "first_name": first_name,
             "last_name": last_name,
             "emails": [email],
         },
+        timeout=30,
     )
+    resp.raise_for_status()
+
     person_id = resp.json()["id"]
     logger.info(f"Created new person: {person_id} ({first_name} {last_name})")
     return person_id
@@ -145,9 +111,13 @@ def resolve_or_create_organization(
     Find an existing Organization by name, or create a new one.
     Returns the organization ID. This is the entity on the list entry.
     """
-    resp = _request_with_retry(
-        "GET", f"{BASE_URL}/organizations", api_key, params={"term": name}
+    session = get_affinity_session(api_key)
+
+    resp = session.request(
+        "GET", f"{BASE_URL}/organizations", params={"term": name}, timeout=30
     )
+    resp.raise_for_status()
+
     data = resp.json()
     org_list = data.get("organizations", data) if isinstance(data, dict) else data
 
@@ -162,9 +132,11 @@ def resolve_or_create_organization(
     if domain:
         payload["domain"] = domain
 
-    resp = _request_with_retry(
-        "POST", f"{BASE_URL}/organizations", api_key, json=payload
+    resp = session.request(
+        "POST", f"{BASE_URL}/organizations", json=payload, timeout=30
     )
+    resp.raise_for_status()
+
     org_id = resp.json()["id"]
     logger.info(f"Created new organization: {org_id} ({name})")
     return org_id
@@ -177,12 +149,16 @@ def create_list_entry(api_key: str, list_id: int, entity_id: int) -> int:
     """
     Add an Organization to the list. Returns the list entry ID.
     """
-    resp = _request_with_retry(
+    session = get_affinity_session(api_key)
+
+    resp = session.request(
         "POST",
         f"{BASE_URL}/lists/{list_id}/list-entries",
-        api_key,
         json={"entity_id": entity_id},
+        timeout=30,
     )
+    resp.raise_for_status()
+
     entry_id = resp.json()["id"]
     logger.info(f"Created list entry: {entry_id} in list {list_id}")
     return entry_id
@@ -209,16 +185,14 @@ def set_field_value(
         "value": value,
     }
 
-    print(f"[DEBUG SET_FIELD] LIST-SPECIFIC: {payload}")
+    logger.debug(f"Setting LIST-SPECIFIC field: {payload}")
 
-    response = _request_with_retry(
-        "POST",
-        f"{BASE_URL}/field-values",
-        api_key,
-        json=payload,
+    session = get_affinity_session(api_key)
+    response = session.request(
+        "POST", f"{BASE_URL}/field-values", json=payload, timeout=30
     )
+    response.raise_for_status()
 
-    print(f"[DEBUG SET_FIELD] Response: {response.status_code} - {response.text[:200]}")
     logger.info(
         f"Set list field {field_id} = '{str(value)[:80]}' on entry {list_entry_id}"
     )
@@ -243,16 +217,14 @@ def set_global_field_value(
         "value": value,
     }
 
-    print(f"[DEBUG SET_FIELD] GLOBAL: {payload}")
+    logger.debug(f"Setting GLOBAL field: {payload}")
 
-    response = _request_with_retry(
-        "POST",
-        f"{BASE_URL}/field-values",
-        api_key,
-        json=payload,
+    session = get_affinity_session(api_key)
+    response = session.request(
+        "POST", f"{BASE_URL}/field-values", json=payload, timeout=30
     )
+    response.raise_for_status()
 
-    print(f"[DEBUG SET_FIELD] Response: {response.status_code} - {response.text[:200]}")
     logger.info(
         f"Set global field {field_id} = '{str(value)[:80]}' on entity {entity_id}"
     )
@@ -267,19 +239,6 @@ def populate_list_entry(
 ) -> None:
     """
     Set all field values on the Pitch Intake list entry.
-
-    GLOBAL fields (no list_entry_id):
-      - Contact                      -> person       (5763309) value = person_id (int)
-      - Contact (Email)              -> text         (5763310)
-      - Contact (Phone Number)       -> text         (5753116)
-      - Priority Sector              -> dropdown     (5450487) value = text label
-      - Venture Stage                -> dropdown     (5763423) value = text label
-      - Date of Incorporation        -> date         (5753155) value = "YYYY-MM-DD"
-      - Discovery                    -> text         (5763444)
-
-    LIST-SPECIFIC fields (includes list_entry_id):
-      - Investment Round Size        -> number       (5753169)
-      - Potential Investment Amount   -> number       (5763414)
     """
 
     # Mapping from short form values to exact Affinity dropdown labels
@@ -294,66 +253,53 @@ def populate_list_entry(
     def _set_global(env_key: str, value: Any) -> None:
         """Set a GLOBAL field value (no list_entry_id)."""
         field_id = os.environ.get(env_key)
-        print(f"[DEBUG FIELD] GLOBAL {env_key} -> field_id={field_id}, value={str(value)[:80]}")
+        logger.debug(
+            f"GLOBAL {env_key} -> field_id={field_id}, value={str(value)[:80]}"
+        )
         if not field_id:
-            print(f"[DEBUG FIELD] >> SKIPPED - env var {env_key} not found!")
+            logger.debug(f"SKIPPED - env var {env_key} not found")
             return
         try:
             set_global_field_value(api_key, org_id, field_id, value)
-            print(f"[DEBUG FIELD] >> OK (global)")
         except Exception as e:
-            print(f"[DEBUG FIELD] >> FAIL (global) - {env_key}: {type(e).__name__}: {e}")
+            logger.error(f"FAIL (global) - {env_key}: {type(e).__name__}: {e}")
 
     def _set_list(env_key: str, value: Any) -> None:
         """Set a LIST-SPECIFIC field value (includes list_entry_id)."""
         field_id = os.environ.get(env_key)
-        print(f"[DEBUG FIELD] LIST {env_key} -> field_id={field_id}, value={str(value)[:80]}")
+        logger.debug(f"LIST {env_key} -> field_id={field_id}, value={str(value)[:80]}")
         if not field_id:
-            print(f"[DEBUG FIELD] >> SKIPPED - env var {env_key} not found!")
+            logger.debug(f"SKIPPED - env var {env_key} not found")
             return
         try:
             set_field_value(api_key, org_id, list_entry_id, field_id, value)
-            print(f"[DEBUG FIELD] >> OK (list)")
         except Exception as e:
-            print(f"[DEBUG FIELD] >> FAIL (list) - {env_key}: {type(e).__name__}: {e}")
+            logger.error(f"FAIL (list) - {env_key}: {type(e).__name__}: {e}")
 
-    print(f"[DEBUG] === POPULATING FIELDS FOR ENTRY {list_entry_id} ===")
-    print(f"[DEBUG] org_id={org_id}, person_id={person_id}")
+    logger.debug(f"=== POPULATING FIELDS FOR ENTRY {list_entry_id} ===")
+    logger.debug(f"org_id={org_id}, person_id={person_id}")
 
     # ==================================================================
     # GLOBAL FIELDS (no list_entry_id)
     # ==================================================================
 
-    # -- Contact (Person) - global, value is person_id as INTEGER
     _set_global("AFFINITY_FIELD_ID_CONTACT", person_id)
-
-    # -- Contact (Email) - global text
     _set_global("AFFINITY_FIELD_ID_CONTACT_EMAIL", form_data.get("email", ""))
-
-    # -- Contact (Phone Number) - global text
     _set_global("AFFINITY_FIELD_ID_CONTACT_PHONE_NUMBER", form_data.get("phone", ""))
 
-    # -- Priority Sector - global dropdown (send text label directly)
     sector = form_data.get("sector", "")
     if sector:
-        print(f"[DEBUG DROPDOWN] sector='{sector}' (sending text directly)")
         _set_global("AFFINITY_FIELD_ID_PRIORITY_SECTOR", sector)
 
-    # -- Venture Stage - global dropdown (map short label to full Affinity label)
     venture_stage = form_data.get("venture_stage", "")
     if venture_stage:
         affinity_label = VENTURE_STAGE_MAP.get(venture_stage, venture_stage)
-        print(f"[DEBUG DROPDOWN] venture_stage='{venture_stage}' -> affinity_label='{affinity_label}'")
         _set_global("AFFINITY_FIELD_ID_VENTURE_STAGE", affinity_label)
 
-    # -- Date of Incorporation - GLOBAL date
     date_val = form_data.get("date_of_incorporation", "")
     if date_val:
         _set_global("AFFINITY_FIELD_ID_DATE_OF_INCORPORATION", date_val)
-    else:
-        print(f"[DEBUG FIELD] >> date_of_incorporation is empty, skipping")
 
-    # -- Discovery - global text ("How did you hear about NBIF?")
     discovery = form_data.get("discovery", "")
     if discovery:
         _set_global("AFFINITY_FIELD_ID_DISCOVERY", discovery)
@@ -362,12 +308,10 @@ def populate_list_entry(
     # LIST-SPECIFIC FIELDS (includes list_entry_id)
     # ==================================================================
 
-    # -- Investment Round Size - list number
     round_size = form_data.get("investment_round_size")
     if round_size is not None:
         _set_list("AFFINITY_FIELD_ID_INVESTMENT_ROUND_SIZE", round_size)
 
-    # -- Potential Investment Amount - list number
     potential_amount = form_data.get("potential_investment_amount")
     if potential_amount is not None:
         _set_list("AFFINITY_FIELD_ID_POTENTIAL_INVESTMENT_AMOUNT", potential_amount)
@@ -376,44 +320,8 @@ def populate_list_entry(
     # SKIPPED FOR MVP
     # ==================================================================
 
-    # -- Accelerator - Organization multi-value (skipped)
     accelerator = form_data.get("accelerator", "")
     if accelerator:
-        print(f"[DEBUG FIELD] Accelerator text (not mapped): '{accelerator[:100]}'")
+        logger.debug(f"Accelerator text (not mapped): '{accelerator[:100]}'")
 
-    print(f"[DEBUG] === FIELD POPULATION COMPLETE ===")
     logger.info(f"All field values populated on entry {list_entry_id}")
-
-def _resolve_dropdown_option_id(form_value: str, env_prefix: str) -> str | None:
-    """
-    Map a form text value to its Affinity dropdown option ID.
-    Returns the option ID as a STRING (Affinity requires string type for dropdowns).
-    """
-    normalized = (
-        form_value.upper()
-        .replace(" ", "_")
-        .replace("-", "_")
-        .replace("&", "AND")
-        .replace("/", "_")
-    )
-    while "__" in normalized:
-        normalized = normalized.replace("__", "_")
-
-    # Direct lookup
-    env_key = f"{env_prefix}{normalized}"
-    option_id = os.environ.get(env_key)
-    if option_id:
-        return str(option_id)
-
-    # Fallback: scan all env vars with the prefix for a fuzzy match
-    for key, value in os.environ.items():
-        if key.startswith(env_prefix):
-            env_suffix = key[len(env_prefix):]
-            if env_suffix == normalized or env_suffix.strip("_") == normalized.strip("_"):
-                return str(value)
-
-    logger.warning(
-        f"No dropdown option ID found for '{form_value}'. "
-        f"Looked for env var: {env_key}"
-    )
-    return None

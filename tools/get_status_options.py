@@ -10,32 +10,33 @@ AFFINITY_API_KEY = os.environ.get("AFFINITY_API_KEY")
 AFFINITY_FIELD_ID_VENTURE_STAGE = os.environ.get("AFFINITY_FIELD_ID_VENTURE_STAGE")
 AFFINITY_BASE = "https://api.affinity.co"
 
+
 def test_get_dropdown_options():
     print(f"Fetching details for Field ID: {AFFINITY_FIELD_ID_VENTURE_STAGE}...")
-    
-    resp = requests.get(
-        f"{AFFINITY_BASE}/fields",
-        auth=("", AFFINITY_API_KEY)
-    )
-    
+
+    resp = requests.get(f"{AFFINITY_BASE}/fields", auth=("", AFFINITY_API_KEY))
+
     resp.raise_for_status()
     fields = resp.json()
-    
+
     # Search through all fields for the one matching your Status field
     for field in fields:
         if str(field.get("id")) == str(AFFINITY_FIELD_ID_VENTURE_STAGE):
             print(f"\n=== Found Field: {field.get('name')} ===")
             options = field.get("dropdown_options", [])
-            
+
             if not options:
                 print("No dropdown options found for this field.")
             else:
                 for option in options:
-                    print(f"Option Text: '{option.get('text')}'  --->  Integer ID: {option.get('id')}")
+                    print(
+                        f"Option Text: '{option.get('text')}'  --->  Integer ID: {option.get('id')}"
+                    )
             print("===================================\n")
             return
-            
+
     print("Error: Could not find a field with that ID.")
+
 
 if __name__ == "__main__":
     if not AFFINITY_API_KEY or not AFFINITY_FIELD_ID_VENTURE_STAGE:
