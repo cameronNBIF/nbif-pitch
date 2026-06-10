@@ -11,3 +11,8 @@ azure-data-tables
 
 # HTTP requests (for Affinity API calls and Turnstile verification)
 requests
+
+
+# URL-safe slug generation for blob paths
+python-slugify
+

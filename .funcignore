@@ -7,3 +7,4 @@ tests
 *.pyc
 .env
 tools
+*.md

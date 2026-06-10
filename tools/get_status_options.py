@@ -7,11 +7,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 AFFINITY_API_KEY = os.environ.get("AFFINITY_API_KEY")
-AFFINITY_FIELD_ID_PRIORITY_SECTOR = os.environ.get("AFFINITY_FIELD_ID_PRIORITY_SECTOR")
+AFFINITY_FIELD_ID_VENTURE_STAGE = os.environ.get("AFFINITY_FIELD_ID_VENTURE_STAGE")
 AFFINITY_BASE = "https://api.affinity.co"
 
 def test_get_dropdown_options():
-    print(f"Fetching details for Field ID: {AFFINITY_FIELD_ID_PRIORITY_SECTOR}...")
+    print(f"Fetching details for Field ID: {AFFINITY_FIELD_ID_VENTURE_STAGE}...")
     
     resp = requests.get(
         f"{AFFINITY_BASE}/fields",
@@ -23,7 +23,7 @@ def test_get_dropdown_options():
     
     # Search through all fields for the one matching your Status field
     for field in fields:
-        if str(field.get("id")) == str(AFFINITY_FIELD_ID_PRIORITY_SECTOR):
+        if str(field.get("id")) == str(AFFINITY_FIELD_ID_VENTURE_STAGE):
             print(f"\n=== Found Field: {field.get('name')} ===")
             options = field.get("dropdown_options", [])
             
@@ -38,7 +38,7 @@ def test_get_dropdown_options():
     print("Error: Could not find a field with that ID.")
 
 if __name__ == "__main__":
-    if not AFFINITY_API_KEY or not AFFINITY_FIELD_ID_PRIORITY_SECTOR:
-        print("Error: Missing API key or Priority Sector Field ID.")
+    if not AFFINITY_API_KEY or not AFFINITY_FIELD_ID_VENTURE_STAGE:
+        print("Error: Missing API key or Venture Stage Field ID.")
     else:
         test_get_dropdown_options()

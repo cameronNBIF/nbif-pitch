@@ -1,88 +1,113 @@
-import requests
 import os
+import requests
 from dotenv import load_dotenv
 
+# Load environment variables from the .env file
 load_dotenv()
 
 API_KEY = os.getenv("AFFINITY_API_KEY")
 LIST_ID = os.getenv("AFFINITY_LIST_ID")
 
-BASE_URL = "https://api.affinity.co"
-
-headers = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
+# Gather the specific field IDs from your .env to filter the API response
+ENV_FIELD_IDS = {
+    os.getenv("AFFINITY_FIELD_ID_CONTACT"),
+    os.getenv("AFFINITY_FIELD_ID_CONTACT_EMAIL"),
+    os.getenv("AFFINITY_FIELD_ID_CONTACT_PHONE_NUMBER"),
+    os.getenv("AFFINITY_FIELD_ID_DATE_OF_INCORPORATION"),
+    os.getenv("AFFINITY_FIELD_ID_PRIORITY_SECTOR"),
+    os.getenv("AFFINITY_FIELD_ID_INVESTMENT_ROUND_SIZE"),
+    os.getenv("AFFINITY_FIELD_ID_POTENTIAL_INVESTMENT_AMOUNT"),
+    os.getenv("AFFINITY_FIELD_ID_VENTURE_STAGE"),
+    os.getenv("AFFINITY_FIELD_ID_ACCELERATOR"),
+    os.getenv("AFFINITY_FIELD_ID_DISCOVERY")
 }
 
-ENTITY_TYPES = {
-    0: "Organization",
-    1: "Person",
-    2: "Opportunity"
+# Clean up empty values and convert to integers
+TARGET_FIELD_IDS = {int(fid) for fid in ENV_FIELD_IDS if fid}
+
+# Affinity maps field types to integers. This dictionary translates them for readability.
+AFFINITY_TYPE_MAP = {
+    0: "Person",
+    1: "Organization",
+    2: "Dropdown",
+    3: "Number",
+    4: "Date",
+    5: "Location",
+    6: "Text",
+    7: "Datetime",
+    8: "Ranked Dropdown"
 }
 
-def format_field(field, source):
-    lines = [
-        f"Field ID:     {field['id']}",
-        f"Field Name:   {field['name']}",
-        f"Field Type:   {field.get('value_type', 'Unknown')}",
-        f"Source:       {source}",
-        "-" * 80
-    ]
-    return "\n".join(lines)
-
-def get_list_fields(list_id):
-    seen_ids = set()
+def fetch_list_fields():
+    """Fetches both global fields and fields associated with the specific Affinity List."""
     all_fields = []
+    
+    # 1. Fetch List-Specific Fields
+    list_url = f"https://api.affinity.co/fields?list_id={LIST_ID}"
+    list_response = requests.get(list_url, auth=('', API_KEY))
+    
+    if list_response.status_code == 200:
+        all_fields.extend(list_response.json())
+    else:
+        print(f"Error fetching list fields: {list_response.status_code}\n{list_response.text}")
 
-    # --- 1. List-specific fields (also reveals entity type) ---
-    list_response = requests.get(f"{BASE_URL}/lists/{list_id}", headers=headers)
-    list_response.raise_for_status()
-    list_data = list_response.json()
-    entity_type = list_data.get("type")
+    # 2. Fetch Global Fields
+    global_url = "https://api.affinity.co/fields"
+    global_response = requests.get(global_url, auth=('', API_KEY))
+    
+    if global_response.status_code == 200:
+        # Combine the lists, ensuring we don't duplicate any fields just in case
+        existing_ids = {f.get('id') for f in all_fields}
+        for field in global_response.json():
+            if field.get('id') not in existing_ids:
+                all_fields.append(field)
+    else:
+        print(f"Error fetching global fields: {global_response.status_code}\n{global_response.text}")
+        
+    return all_fields
 
-    for field in list_data.get("fields", []):
-        if field["id"] not in seen_ids:
-            seen_ids.add(field["id"])
-            all_fields.append((field, "List-specific"))
+def main():
+    if not API_KEY or not LIST_ID:
+        print("Error: Missing AFFINITY_API_KEY or AFFINITY_LIST_ID in the .env file.")
+        return
 
-    # --- 2. Global fields scoped to this list ---
-    global_list_response = requests.get(
-        f"{BASE_URL}/fields", headers=headers, params={"list_id": list_id}
-    )
-    global_list_response.raise_for_status()
+    print(f"Fetching metadata for List ID: {LIST_ID} and Global Workspace...\n")
+    all_fields = fetch_list_fields()
+    
+    if not all_fields:
+        return
 
-    for field in global_list_response.json():
-        if field["id"] not in seen_ids:
-            seen_ids.add(field["id"])
-            all_fields.append((field, "Global (list-scoped)"))
+    # Setup table formatting for the console output
+    print(f"{'ID':<10} | {'Field Name':<25} | {'Type':<16} | {'Extra Context / Dropdown Options'}")
+    print("-" * 120)
+    
+    for field in all_fields:
+        field_id = field.get("id")
+        
+        # Only process fields that exist in your .env file
+        if field_id in TARGET_FIELD_IDS:
+            name = field.get("name", "Unknown")
+            value_type_int = field.get("value_type")
+            value_type_str = AFFINITY_TYPE_MAP.get(value_type_int, f"Unknown ({value_type_int})")
+            
+            allows_multiple = field.get("allows_multiple", False)
+            
+            # Build up extra context (multiple values, dropdown configurations)
+            context = []
+            if allows_multiple:
+                context.append("[Allows Multiple Values]")
+                
+            # If the field is a dropdown (type 2 or 8), extract its available options
+            if value_type_int in [2, 8]:
+                dropdown_options = field.get("dropdown_options", [])
+                if dropdown_options:
+                    options_str = ", ".join([f"{opt['text']} ({opt['id']})" for opt in dropdown_options])
+                    context.append(f"Options: {options_str}")
+            
+            context_output = " ".join(context) if context else "Standard Field"
+            
+            # Print the formatted row
+            print(f"{field_id:<10} | {name[:25]:<25} | {value_type_str:<16} | {context_output}")
 
-    # --- 3. Global fields by entity type ---
-    if entity_type is not None:
-        entity_label = ENTITY_TYPES.get(entity_type, f"Entity type {entity_type}")
-        global_entity_response = requests.get(
-            f"{BASE_URL}/fields", headers=headers, params={"entity_type": entity_type}
-        )
-        global_entity_response.raise_for_status()
-
-        for field in global_entity_response.json():
-            if field["id"] not in seen_ids:
-                seen_ids.add(field["id"])
-                all_fields.append((field, f"Global ({entity_label})"))
-
-    # --- Build output ---
-    entity_label = ENTITY_TYPES.get(entity_type, str(entity_type))
-    header = f"All fields for List {list_id} [{entity_label}] ({len(all_fields)} total):\n" + "-" * 80
-    body = "\n".join(format_field(field, source) for field, source in all_fields)
-    output = f"{header}\n{body}"
-
-    # --- Print to console ---
-    print(output)
-
-    # --- Write to .txt file ---
-    output_path = f"list_{list_id}_fields.txt"
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(output)
-    print(f"\nResults saved to {output_path}")
-
-if __name__ == "__main__":
-    get_list_fields(LIST_ID)
+if __name__ == '__main__':
+    main()
