@@ -1,18 +1,13 @@
-# Uncomment to enable Azure Monitor OpenTelemetry
-# Ref: aka.ms/functions-azure-monitor-python 
-# azure-monitor-opentelemetry 
-
+# Azure Functions SDK
 azure-functions
 
-# Azure Storage (Blob, Table, Queue)
+# Azure Storage (Blob for archive, Table for dedup, Queue for dead-letter)
 azure-storage-blob
 azure-storage-queue
 azure-data-tables
 
-# HTTP requests (for Affinity API calls and Turnstile verification)
+# HTTP requests (Affinity API, Turnstile verification)
 requests
-
 
 # URL-safe slug generation for blob paths
 python-slugify
-

@@ -1,33 +1,31 @@
 """
 handler.py
 Main HTTP trigger function for the Pitch Intake Form.
-Orchestrates the full pipeline: validate → archive → upload → Affinity → notify.
+Orchestrates the pipeline: validate → archive → Affinity → notify.
+
+No file upload — pitch deck was removed from the form (June 2026).
 """
 
 import json
 import logging
 import os
 import uuid
-
 import azure.functions as func
 import requests
 
 from . import bp
 from .affinity_client import (
     create_list_entry,
+    populate_list_entry,
     resolve_or_create_organization,
     resolve_or_create_person,
-    set_all_field_values,
-    upload_entity_file,
 )
 from .storage_client import (
     archive_submission,
     check_duplicate,
-    generate_sas_url,
     record_submission_fingerprint,
     send_to_deadletter,
     update_archive,
-    upload_pitch_deck,
 )
 from .cloudflare_turnstile import verify_turnstile_token
 from .validators import validate_submission
@@ -43,11 +41,9 @@ def _extract_domain(url: str) -> str:
     if not url:
         return ""
     url = url.lower().strip()
-    # Remove protocol
     for prefix in ("https://", "http://", "www."):
         if url.startswith(prefix):
             url = url[len(prefix):]
-    # Remove path
     url = url.split("/")[0]
     return url
 
@@ -68,11 +64,7 @@ def _send_teams_notification(
     first_name = form_data.get("first_name", "")
     last_name = form_data.get("last_name", "")
     sector = form_data.get("sector", "N/A")
-    summary = form_data.get("executive_summary", "")
-    # Truncate summary to ~50 words
-    words = summary.split()
-    if len(words) > 50:
-        summary = " ".join(words[:50]) + "..."
+    venture_stage = form_data.get("venture_stage", "N/A")
 
     card_body = [
         {
@@ -85,18 +77,14 @@ def _send_teams_notification(
             "type": "FactSet",
             "facts": [
                 {"title": "Founder", "value": f"{first_name} {last_name}"},
-                {"title": "Sector", "value": sector},
                 {"title": "Email", "value": form_data.get("email", "N/A")},
+                {"title": "Sector", "value": sector},
+                {"title": "Venture Stage", "value": venture_stage},
                 {
-                    "title": "Raising Capital",
-                    "value": form_data.get("raising_capital", "N/A"),
+                    "title": "Discovery",
+                    "value": form_data.get("discovery", "N/A"),
                 },
             ],
-        },
-        {
-            "type": "TextBlock",
-            "text": f"**Executive Summary:** {summary}",
-            "wrap": True,
         },
     ]
 
@@ -134,24 +122,13 @@ def _get_config() -> dict[str, str]:
         "TURNSTILE_SECRET": os.environ["CLOUDFLARE_TURNSTILE_SECRET_KEY"],
         "LIST_ID": os.environ["AFFINITY_LIST_ID"],
         "CONTAINER_SUBMISSIONS": os.environ.get(
-            "BLOB_CONTAINER_SUBMISSIONS", "submissions"
+            "AZURE_BLOB_CONTAINER_SUBMISSIONS", "submissions"
         ),
-        "CONTAINER_DECKS": os.environ.get("BLOB_CONTAINER_PITCH_DECKS", "pitch-decks"),
-        "TABLE_DEDUP": os.environ.get("TABLE_NAME_DEDUP", "pitchdedup"),
+        "TABLE_DEDUP": os.environ.get("AZURE_TABLE_NAME_DEDUP", "dedup"),
         "QUEUE_DEADLETTER": os.environ.get(
-            "QUEUE_NAME_DEADLETTER", "pitch-dead-letter"
+            "AZURE_QUEUE_NAME_DEADLETTER", "pitchintakedeadletter"
         ),
-        # "TEAMS_WEBHOOK_URL": os.environ.get("TEAMS_WEBHOOK_URL", ""),
-    }
-
-
-def _get_field_ids() -> dict[str, str]:
-    """Load Affinity field IDs from environment variables."""
-    prefix = "AFFINITY_FIELD_ID_"
-    return {
-        key.replace(prefix, ""): value
-        for key, value in os.environ.items()
-        if key.startswith(prefix)
+        "TEAMS_WEBHOOK_URL": os.environ.get("TEAMS_WEBHOOK_URL", ""),
     }
 
 
@@ -167,34 +144,31 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
     """
     HTTP trigger for Pitch Intake Form submissions.
 
-    Receives multipart/form-data from the custom form on nbif.ca,
-    validates the submission, archives it to Blob Storage, creates
-    records in Affinity CRM, and notifies the VC team.
+    Receives form data from the custom form on nbif.ca,
+    validates the submission, archives it to Blob Storage,
+    creates records in Affinity CRM, and notifies the VC team.
 
-    Pipeline steps (matching Design Document Section 7):
-      1. Extract form data and file
+    Pipeline:
+      1. Extract form data
       2. Verify CAPTCHA token
-      3. Validate form fields and file
+      3. Validate form fields
       4. Check for duplicate submission
       5. Archive raw submission to Blob Storage
-      6. Upload pitch deck to Blob Storage
-      7. Generate SAS URL
-      8. Resolve/create Person in Affinity
-      9. Resolve/create Organization in Affinity
-     10. Create List Entry in Affinity
-     11. Set field values on the list entry
-     12. Upload pitch deck to Affinity (Entity Files API)
-     13. Update submission archive with results
-     14. Send notification to VC team
-     15. Return success response
+      6. Resolve/create Person in Affinity
+      7. Resolve/create Organization in Affinity
+      8. Create List Entry in Affinity
+      9. Set field values on the list entry
+     10. Update submission archive with results
+     11. Send notification to VC team
+     12. Return success response
     """
     submission_id = str(uuid.uuid4())
     logger.info(f"[{submission_id}] Pitch Intake submission received.")
 
     # ── Load configuration ────────────────────────────────────────────
+
     try:
         config = _get_config()
-        field_ids = _get_field_ids()
     except KeyError as e:
         logger.critical(f"[{submission_id}] Missing configuration: {e}")
         return func.HttpResponse(
@@ -205,10 +179,9 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
 
     # ── Phase 1: Extract & Validate (errors returned to user) ─────────
 
-    # Step 1: Extract form data and file
+    # Step 1: Extract form data
     try:
         form = req.form
-        files = req.files
 
         form_data_raw = {
             "first_name": form.get("first_name", ""),
@@ -217,38 +190,21 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
             "email": form.get("email", ""),
             "phone": form.get("phone", ""),
             "website": form.get("website", ""),
-            "city": form.get("city", ""),
             "sector": form.get("sector", ""),
-            "executive_summary": form.get("executive_summary", ""),
-            "corporate_entity": form.get("corporate_entity", ""),
+            "venture_stage": form.get("venture_stage", ""),
             "date_of_incorporation": form.get("date_of_incorporation", ""),
-            "raising_capital": form.get("raising_capital", ""),
-            "financing_amount": form.get("financing_amount", ""),
-            "current_investors": form.get("current_investors", ""),
-            "ip_reliance": form.get("ip_reliance", ""),
-            "ip_ownership_details": form.get("ip_ownership_details", ""),
+            "investment_round_size": form.get("investment_round_size", ""),
+            "potential_investment_amount": form.get("potential_investment_amount", ""),
+            "discovery": form.get("discovery", ""),
+            "accelerator": form.get("accelerator", ""),
         }
 
         captcha_token = form.get("cf-turnstile-response", "")
 
-        # Extract file
-        pitch_deck_file = files.get("pitch_deck")
-        file_content = None
-        file_info = None
-
-        if pitch_deck_file:
-            file_content = pitch_deck_file.stream.read()
-            file_info = {
-                "filename": pitch_deck_file.filename,
-                "content_type": pitch_deck_file.content_type,
-                "size_bytes": len(file_content),
-            }
-
         logger.info(
             f"[{submission_id}] Form data extracted. "
             f"Business: {form_data_raw.get('business_name')}, "
-            f"Email: {form_data_raw.get('email')}, "
-            f"File: {file_info.get('filename') if file_info else 'None'}"
+            f"Email: {form_data_raw.get('email')}"
         )
 
     except Exception as e:
@@ -272,8 +228,8 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    # Step 3: Validate form fields and file
-    validated_data, errors = validate_submission(form_data_raw, file_info)
+    # Step 3: Validate form fields
+    validated_data, errors = validate_submission(form_data_raw)
 
     if errors:
         logger.info(f"[{submission_id}] Validation failed: {errors}")
@@ -310,16 +266,15 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         submission_id,
     )
 
-    # ── Phase 2: Storage (errors returned to user) ────────────────────
+    # ── Phase 2: Archive to Blob Storage (errors returned to user) ────
 
-    # Step 5: Archive raw submission to Blob Storage
+    # Step 5: Archive raw submission
     try:
         archive_blob_path = archive_submission(
             config["STORAGE_CONN_STR"],
             config["CONTAINER_SUBMISSIONS"],
             submission_id,
             validated_data,
-            file_info,  # type: ignore[arg-type]
         )
     except Exception as e:
         logger.error(f"[{submission_id}] Failed to archive submission: {e}")
@@ -328,51 +283,6 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
             mimetype="application/json",
         )
-
-    # Step 6: Upload pitch deck to Blob Storage
-    try:
-        deck_blob_path, deck_blob_url = upload_pitch_deck(
-            config["STORAGE_CONN_STR"],
-            config["CONTAINER_DECKS"],
-            file_content,  # type: ignore[arg-type]
-            file_info["filename"],  # type: ignore[index]
-            validated_data["business_name"],
-            file_info.get("content_type", "application/octet-stream"),  # type: ignore[union-attr]
-        )
-    except Exception as e:
-        logger.error(f"[{submission_id}] Failed to upload pitch deck: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": "Failed to upload pitch deck. Please try again."}),
-            status_code=500,
-            mimetype="application/json",
-        )
-
-    # Step 7: Generate SAS URL
-    try:
-        sas_url = generate_sas_url(
-            config["STORAGE_CONN_STR"],
-            config["CONTAINER_DECKS"],
-            deck_blob_path,
-            expiry_days=365,
-        )
-    except Exception as e:
-        logger.error(f"[{submission_id}] Failed to generate SAS URL: {e}")
-        # Non-fatal — use the direct blob URL as fallback
-        sas_url = deck_blob_url
-
-    # Update archive with blob info
-    update_archive(
-        config["STORAGE_CONN_STR"],
-        config["CONTAINER_SUBMISSIONS"],
-        archive_blob_path,
-        {
-            "pitch_deck": {
-                "blob_path": deck_blob_path,
-                "blob_url": deck_blob_url,
-                "sas_url": sas_url,
-            }
-        },
-    )
 
     # ── Phase 3: Affinity CRM (dead-letter on failure) ────────────────
     # From this point on, the user gets a success response regardless.
@@ -387,17 +297,16 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         api_key = config["AFFINITY_API_KEY"]
         list_id = int(config["LIST_ID"])
 
-        # Step 8: Resolve or create Person
+        # Step 6: Resolve or create Person (founder)
         person_id = resolve_or_create_person(
             api_key,
             validated_data["first_name"],
             validated_data["last_name"],
             validated_data["email"],
-            validated_data.get("phone", ""),
         )
         logger.info(f"[{submission_id}] Person resolved/created: {person_id}")
 
-        # Step 9: Resolve or create Organization
+        # Step 7: Resolve or create Organization
         domain = _extract_domain(validated_data.get("website", ""))
         org_id = resolve_or_create_organization(
             api_key,
@@ -406,15 +315,20 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         )
         logger.info(f"[{submission_id}] Organization resolved/created: {org_id}")
 
-        # Step 10: Create List Entry
+        # Step 8: Create List Entry (entity = Organization)
         entry_id = create_list_entry(api_key, list_id, org_id)
         logger.info(f"[{submission_id}] List entry created: {entry_id}")
 
-        # Step 11: Set all field values
-        set_all_field_values(
-            api_key, entry_id, org_id, validated_data, sas_url, field_ids
-        )
-        logger.info(f"[{submission_id}] Field values set on entry {entry_id}")
+        # Step 9: Set all field values
+        
+        populate_list_entry(
+                    api_key,
+                    org_id,
+                    entry_id,
+                    person_id,
+                    validated_data,
+                )
+        logger.info(f"[{submission_id}] Field values populated on entry {entry_id}")
 
         affinity_success = True
 
@@ -428,24 +342,13 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
             config["QUEUE_DEADLETTER"],
             submission_id,
             archive_blob_path,
-            deck_blob_path,
             str(e),
             failed_step="affinity_crm",
         )
 
-    # Step 12: Upload pitch deck to Affinity (Entity Files API)
-    # Non-critical — if this fails, the deck is still in Blob Storage
-    if affinity_success and org_id:
-        upload_entity_file(
-            config["AFFINITY_API_KEY"],
-            org_id,
-            file_content,  # type: ignore[arg-type]
-            file_info["filename"],  # type: ignore[index]
-        )
-
     # ── Phase 4: Post-processing ──────────────────────────────────────
 
-    # Step 13: Update archive with Affinity IDs
+    # Step 10: Update archive with Affinity IDs
     update_archive(
         config["STORAGE_CONN_STR"],
         config["CONTAINER_SUBMISSIONS"],
@@ -460,12 +363,12 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         },
     )
 
-    # Step 14: Send notification to VC team
-    # teams_webhook = config.get("TEAMS_WEBHOOK_URL", "")
-    # if teams_webhook and affinity_success:
-    #     _send_teams_notification(teams_webhook, validated_data, org_id)
+    # Step 11: Send notification to VC team
+    teams_webhook = config.get("TEAMS_WEBHOOK_URL", "")
+    if teams_webhook and affinity_success:
+        _send_teams_notification(teams_webhook, validated_data, org_id)
 
-    # Step 15: Return success response
+    # Step 12: Return success response
     logger.info(
         f"[{submission_id}] Pipeline complete. "
         f"Affinity success: {affinity_success}. "
