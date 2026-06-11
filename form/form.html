@@ -276,7 +276,7 @@
 (function() {
   'use strict';
 
-  var ENDPOINT = 'https://nbif-pitch-func-gmfkhcfccbatgmdr.canadacentral-01.azurewebsites.net/api/pitch-intake?code=4GkgpCihAxkfQTUVCVp0qIN21p5qKpnHl5EPfBQ0-jXkAzFurmCUcA==';
+  var ENDPOINT = 'https://nbif-pitch-func-gmfkhcfccbatgmdr.canadacentral-01.azurewebsites.net/api/pitch-intake?code=AZURE_FUNCTION_DEFAULT_APP_KEY';
 
   var form = document.getElementById('nbifPitchForm');
   var submitBtn = document.getElementById('submitBtn');
@@ -374,6 +374,7 @@
     formData.append('venture_stage', form.elements['venture_stage'].value);
     formData.append('date_of_incorporation', form.elements['date_of_incorporation'].value);
     formData.append('discovery', form.elements['discovery'].value.trim());
+    formData.append('accelerators', form.elements['accelerators'].value.trim());
 
     // Number fields — send only if provided
     var roundSize = form.elements['investment_round_size'].value;
