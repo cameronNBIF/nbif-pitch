@@ -211,7 +211,7 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
             "investment_round_size": form.get("investment_round_size", ""),
             "potential_investment_amount": form.get("potential_investment_amount", ""),
             "discovery": form.get("discovery", ""),
-            "accelerator": form.get("accelerator", ""),
+            "accelerators": form.get("accelerators", ""),
         }
 
         captcha_token = form.get("cf-turnstile-response", "")
