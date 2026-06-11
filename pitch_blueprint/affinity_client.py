@@ -304,6 +304,10 @@ def populate_list_entry(
     if discovery:
         _set_global("AFFINITY_FIELD_ID_DISCOVERY", discovery)
 
+    accelerators = form_data.get("accelerators", "")
+    if accelerators:
+        _set_global("AFFINITY_FIELD_ID_ACCELERATORS", accelerators)
+
     # ==================================================================
     # LIST-SPECIFIC FIELDS (includes list_entry_id)
     # ==================================================================
@@ -315,13 +319,5 @@ def populate_list_entry(
     potential_amount = form_data.get("potential_investment_amount")
     if potential_amount is not None:
         _set_list("AFFINITY_FIELD_ID_POTENTIAL_INVESTMENT_AMOUNT", potential_amount)
-
-    # ==================================================================
-    # SKIPPED FOR MVP
-    # ==================================================================
-
-    accelerator = form_data.get("accelerator", "")
-    if accelerator:
-        logger.debug(f"Accelerator text (not mapped): '{accelerator[:100]}'")
 
     logger.info(f"All field values populated on entry {list_entry_id}")
