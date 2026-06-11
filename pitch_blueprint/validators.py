@@ -148,9 +148,9 @@ def validate_submission(
 
     validated["discovery"] = (form_data.get("discovery") or "").strip()
 
-    # ── Accelerator (optional, text — skipped in Affinity for MVP) ────
-
-    validated["accelerator"] = (form_data.get("accelerator") or "").strip()
+    # ── Accelerator (optional, text) ────
+    # Form label: "Have you participated in any accelerator program, if so, please list them"
+    validated["accelerators"] = (form_data.get("accelerators") or "").strip()
 
     if errors:
         logger.info(f"Validation failed with {len(errors)} error(s): {errors}")

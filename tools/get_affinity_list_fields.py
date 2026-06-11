@@ -20,6 +20,7 @@ ENV_FIELD_IDS = {
     os.getenv("AFFINITY_FIELD_ID_VENTURE_STAGE"),
     os.getenv("AFFINITY_FIELD_ID_ACCELERATOR"),
     os.getenv("AFFINITY_FIELD_ID_DISCOVERY"),
+    os.getenv("AFFINITY_FIELD_ID_ACCELERATORS"),
 }
 
 # Clean up empty values and convert to integers
