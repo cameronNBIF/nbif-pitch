@@ -114,6 +114,10 @@ def validate_submission(
         form_data.get("date_of_incorporation") or ""
     ).strip()
 
+    # ── Company Profile (optional, text) ──────────────────────────────
+
+    validated["company_profile"] = (form_data.get("company_profile") or "").strip()
+
     # ── Investment Round Size (optional, number) ──────────────────────
 
     round_size_raw = (form_data.get("investment_round_size") or "").strip()
