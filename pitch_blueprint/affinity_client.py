@@ -297,6 +297,10 @@ def populate_list_entry(
     if sector:
         _set_global("AFFINITY_FIELD_ID_PRIORITY_SECTOR", sector)
 
+    company_profile = form_data.get("company_profile", "")
+    if company_profile:
+        _set_global("AFFINITY_FIELD_ID_COMPANY_PROFILE", company_profile)
+
     venture_stage = form_data.get("venture_stage", "")
     if venture_stage:
         affinity_label = VENTURE_STAGE_MAP.get(venture_stage, venture_stage)
