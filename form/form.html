@@ -230,18 +230,18 @@
 
     <!-- Date of Incorporation -->
     <div class="form-group">
-      <label for="date_of_incorporation">Date of Incorporation <span class="optional">(optional)</span></label>
+      <label for="date_of_incorporation">Incorporation date, if incorporated <span class="optional">(optional)</span></label>
       <input type="date" id="date_of_incorporation" name="date_of_incorporation">
     </div>
 
     <!-- Row: Investment Round Size / Potential Investment Amount -->
     <div class="form-row">
       <div class="form-group">
-        <label for="investment_round_size">Investment Round Size ($) <span class="optional">(optional)</span></label>
+        <label for="investment_round_size">What is the total amount being raised in your current financing round?  ($) <span class="optional">(optional)</span></label>
         <input type="number" id="investment_round_size" name="investment_round_size" min="0" step="1" placeholder="e.g. 500000">
       </div>
       <div class="form-group">
-        <label for="potential_investment_amount">Potential NBIF Investment ($) <span class="optional">(optional)</span></label>
+        <label for="potential_investment_amount">How much investment are you seeking from NBIF?   ($) <span class="optional">(optional)</span></label>
         <input type="number" id="potential_investment_amount" name="potential_investment_amount" min="0" step="1" placeholder="e.g. 100000">
       </div>
     </div>
@@ -254,7 +254,7 @@
 
     <!-- Accelerators -->
     <div class="form-group">
-      <label for="accelerators">Accelerators <span class="optional">(optional)</span></label>
+      <label for="accelerators">Have you participated in any accelerator program, if so, please list them <span class="optional">(optional)</span></label>
       <input type="text" id="accelerators" name="accelerators" placeholder="e.g. Propel ICT, Energia Ventures, Venn Innovation...">
     </div>
 
@@ -276,7 +276,7 @@
 (function() {
   'use strict';
 
-  var ENDPOINT = 'https://pitch-intake.cameron-horwood.workers.dev/';
+  var ENDPOINT = 'https://pitch-intake.cameron-horwood.workers.dev';
 
   var form = document.getElementById('nbifPitchForm');
   var submitBtn = document.getElementById('submitBtn');
