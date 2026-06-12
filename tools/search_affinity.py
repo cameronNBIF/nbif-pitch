@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_KEY = os.getenv("AFFINITY_API_KEY")
-LIST_ID = os.getenv("AFFINITY_LIST_ID_MASTER")
+LIST_ID = os.getenv("AFFINITY_LIST_ID")
 
 AFFINITY_TYPE_MAP = {
     0: "Person",
