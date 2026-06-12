@@ -208,6 +208,7 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
             "sector": form.get("sector", ""),
             "venture_stage": form.get("venture_stage", ""),
             "date_of_incorporation": form.get("date_of_incorporation", ""),
+            "company_profile": form.get("company_profile", ""),
             "investment_round_size": form.get("investment_round_size", ""),
             "potential_investment_amount": form.get("potential_investment_amount", ""),
             "discovery": form.get("discovery", ""),
