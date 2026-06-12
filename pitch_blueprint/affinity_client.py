@@ -283,6 +283,12 @@ def populate_list_entry(
     # GLOBAL FIELDS (no list_entry_id)
     # ==================================================================
 
+    status_field_id = os.environ.get("AFFINITY_FIELD_ID_STATUS")
+    if status_field_id:
+        _set_list("AFFINITY_FIELD_ID_STATUS", "Intake")
+    else:
+        logger.warning("AFFINITY_FIELD_ID_STATUS not set. Skipping.")
+
     _set_global("AFFINITY_FIELD_ID_CONTACT", person_id)
     _set_global("AFFINITY_FIELD_ID_CONTACT_EMAIL", form_data.get("email", ""))
     _set_global("AFFINITY_FIELD_ID_CONTACT_PHONE_NUMBER", form_data.get("phone", ""))
@@ -311,7 +317,7 @@ def populate_list_entry(
     # ==================================================================
     # LIST-SPECIFIC FIELDS (includes list_entry_id)
     # ==================================================================
-
+    
     round_size = form_data.get("investment_round_size")
     if round_size is not None:
         _set_list("AFFINITY_FIELD_ID_INVESTMENT_ROUND_SIZE", round_size)
