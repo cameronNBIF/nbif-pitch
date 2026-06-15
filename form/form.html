@@ -117,6 +117,18 @@
     display: none;
   }
 
+  .nbif-pitch-form .word-count {
+    font-size: 0.8em;
+    color: #888;
+    text-align: right;
+    margin-top: 0.3em;
+  }
+
+  .nbif-pitch-form .word-count.over-limit {
+    color: #c0392b;
+    font-weight: 600;
+  }
+
   .nbif-pitch-form .form-message {
     padding: 16px;
     border-radius: 4px;
@@ -234,6 +246,14 @@
       <input type="date" id="date_of_incorporation" name="date_of_incorporation">
     </div>
 
+    <!-- Company Profile -->
+    <div class="form-group">
+      <label for="company_profile">Company Profile <span class="optional">(optional, max 150 words)</span></label>
+      <textarea id="company_profile" name="company_profile" placeholder="Briefly describe your company, what you do, and the problem you solve..."></textarea>
+      <div class="word-count" id="company_profile_count">0 / 150 words</div>
+      <div class="form-error" id="err-company_profile"></div>
+    </div>
+
     <!-- Row: Investment Round Size / Potential Investment Amount -->
     <div class="form-row">
       <div class="form-group">
@@ -281,6 +301,29 @@
   var form = document.getElementById('nbifPitchForm');
   var submitBtn = document.getElementById('submitBtn');
   var messageDiv = document.getElementById('formMessage');
+
+  // Word count for company profile
+  
+  var companyProfileField = document.getElementById('company_profile');
+  var wordCountDisplay = document.getElementById('company_profile_count');
+  var MAX_WORDS = 150;
+
+  function countWords(text) {
+    var trimmed = text.trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).length;
+  }
+
+  companyProfileField.addEventListener('input', function() {
+    var count = countWords(this.value);
+    wordCountDisplay.textContent = count + ' / ' + MAX_WORDS + ' words';
+    if (count > MAX_WORDS) {
+      wordCountDisplay.className = 'word-count over-limit';
+    } else {
+      wordCountDisplay.className = 'word-count';
+    }
+  });
+
 
   // ── Client-side validation ──────────────────────────────────────
 
@@ -346,6 +389,16 @@
       valid = false;
     }
 
+    // Company Profile word count
+    var profileText = (form.elements['company_profile'].value || '').trim();
+    if (profileText) {
+      var wordCount = profileText.split(/\s+/).length;
+      if (wordCount > 150) {
+        showError('company_profile', 'Company Profile cannot exceed 150 words (currently ' + wordCount + ' words).');
+        valid = false;
+      }
+    }
+
     return valid;
   }
 
@@ -373,6 +426,7 @@
     formData.append('sector', form.elements['sector'].value);
     formData.append('venture_stage', form.elements['venture_stage'].value);
     formData.append('date_of_incorporation', form.elements['date_of_incorporation'].value);
+    formData.append('company_profile', form.elements['company_profile'].value.trim());
     formData.append('discovery', form.elements['discovery'].value.trim());
     formData.append('accelerators', form.elements['accelerators'].value.trim());
 
