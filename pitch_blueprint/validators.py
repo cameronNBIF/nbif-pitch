@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
+MAX_COMPANY_PROFILE_WORDS = 150
+
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 # Valid dropdown values — must match the form <option> values exactly
@@ -116,7 +118,15 @@ def validate_submission(
 
     # ── Company Profile (optional, text) ──────────────────────────────
 
-    validated["company_profile"] = (form_data.get("company_profile") or "").strip()
+    company_profile = (form_data.get("company_profile") or "").strip()
+    if company_profile:
+        word_count = len(company_profile.split())
+        if word_count > MAX_COMPANY_PROFILE_WORDS:
+            errors.append(
+                f"Company Profile exceeds {MAX_COMPANY_PROFILE_WORDS} words "
+                f"(currently {word_count} words)."
+            )
+    validated["company_profile"] = company_profile
 
     # ── Investment Round Size (optional, number) ──────────────────────
 
