@@ -8,11 +8,9 @@ No file upload — pitch deck was removed from the form (June 2026).
 
 import json
 import logging
-from logging import config
 import os
 import uuid
 import azure.functions as func
-import requests
 
 from . import bp
 from .affinity_client import (
@@ -30,87 +28,10 @@ from .storage_client import (
 )
 from .slack_client import send_slack_notification
 from .cloudflare_turnstile import verify_turnstile_token
+from .utils import extract_domain
 from .validators import validate_submission
 
 logger = logging.getLogger(__name__)
-
-
-# ── Helper: Extract domain from URL ───────────────────────────────────────
-
-
-def _extract_domain(url: str) -> str:
-    """Extract the root domain from a URL string."""
-    if not url:
-        return ""
-    url = url.lower().strip()
-    for prefix in ("https://", "http://", "www."):
-        if url.startswith(prefix):
-            url = url[len(prefix):]
-    url = url.split("/")[0]
-    return url
-
-
-# ── Helper: Send Teams notification ───────────────────────────────────────
-
-
-def _send_teams_notification(
-    webhook_url: str,
-    form_data: dict,
-    affinity_org_id: int | None = None,
-) -> None:
-    """
-    Send a notification to the VC team via Teams Incoming Webhook.
-    Non-critical — failures are logged but don't affect the submission.
-    """
-    business_name = form_data.get("business_name", "Unknown")
-    first_name = form_data.get("first_name", "")
-    last_name = form_data.get("last_name", "")
-    sector = form_data.get("sector", "N/A")
-    venture_stage = form_data.get("venture_stage", "N/A")
-
-    card_body = [
-        {
-            "type": "TextBlock",
-            "size": "Large",
-            "weight": "Bolder",
-            "text": f"📩 New Pitch Submission: {business_name}",
-        },
-        {
-            "type": "FactSet",
-            "facts": [
-                {"title": "Founder", "value": f"{first_name} {last_name}"},
-                {"title": "Email", "value": form_data.get("email", "N/A")},
-                {"title": "Sector", "value": sector},
-                {"title": "Venture Stage", "value": venture_stage},
-                {
-                    "title": "Discovery",
-                    "value": form_data.get("discovery", "N/A"),
-                },
-            ],
-        },
-    ]
-
-    payload = {
-        "type": "message",
-        "attachments": [
-            {
-                "contentType": "application/vnd.microsoft.card.adaptive",
-                "content": {
-                    "type": "AdaptiveCard",
-                    "version": "1.4",
-                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                    "body": card_body,
-                },
-            }
-        ],
-    }
-
-    try:
-        response = requests.post(webhook_url, json=payload, timeout=10)
-        response.raise_for_status()
-        logger.info(f"Teams notification sent for: {business_name}")
-    except Exception as e:
-        logger.error(f"Teams notification failed: {e}. Non-critical — continuing.")
 
 
 # ── Helper: Get config from environment ───────────────────────────────────
@@ -143,7 +64,6 @@ def _get_config() -> dict[str, str]:
         "QUEUE_DEADLETTER": os.environ.get(
             "AZURE_QUEUE_NAME_DEADLETTER", "pitchintakedeadletter"
         ),
-        "TEAMS_WEBHOOK_URL": os.environ.get("TEAMS_WEBHOOK_URL", ""),
         "SLACK_BOT_USER_OAUTH_TOKEN": os.environ.get("SLACK_BOT_USER_OAUTH_TOKEN", ""),
         "SLACK_INTAKE_CHANNEL_ID": os.environ.get("SLACK_INTAKE_CHANNEL_ID", ""),
     }
@@ -188,7 +108,7 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
 
     try:
         config = _get_config()
-    except KeyError as e:
+    except (KeyError, RuntimeError) as e:
         logger.critical(f"[{submission_id}] Missing configuration: {e}")
         return func.HttpResponse(
             json.dumps({"error": "Server configuration error."}),
@@ -329,7 +249,7 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         logger.info(f"[{submission_id}] Person resolved/created: {person_id}")
 
         # Step 7: Resolve or create Organization
-        domain = _extract_domain(validated_data.get("website", ""))
+        domain = extract_domain(validated_data.get("website", ""))
         org_id = resolve_or_create_organization(
             api_key,
             validated_data["business_name"],
@@ -389,7 +309,9 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
     slack_bot_user_oauth_token = config.get("SLACK_BOT_USER_OAUTH_TOKEN", "")
     slack_intake_channel_id = config.get("SLACK_INTAKE_CHANNEL_ID", "")
     if slack_bot_user_oauth_token and slack_intake_channel_id and affinity_success:
-        send_slack_notification(slack_bot_user_oauth_token, slack_intake_channel_id, validated_data)
+        send_slack_notification(
+            slack_bot_user_oauth_token, slack_intake_channel_id, validated_data
+        )
 
     # Step 12: Return success response
     logger.info(
