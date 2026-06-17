@@ -15,3 +15,6 @@ python-slugify
 # Code cleanup and formatting
 black
 flake8
+
+# Slack SDK for notifications
+slack_sdk
