@@ -8,6 +8,7 @@ No file upload — pitch deck was removed from the form (June 2026).
 
 import json
 import logging
+from logging import config
 import os
 import uuid
 import azure.functions as func
@@ -27,6 +28,7 @@ from .storage_client import (
     send_to_deadletter,
     update_archive,
 )
+from .slack_client import send_slack_notification
 from .cloudflare_turnstile import verify_turnstile_token
 from .validators import validate_submission
 
@@ -142,6 +144,8 @@ def _get_config() -> dict[str, str]:
             "AZURE_QUEUE_NAME_DEADLETTER", "pitchintakedeadletter"
         ),
         "TEAMS_WEBHOOK_URL": os.environ.get("TEAMS_WEBHOOK_URL", ""),
+        "SLACK_BOT_USER_OAUTH_TOKEN": os.environ.get("SLACK_BOT_USER_OAUTH_TOKEN", ""),
+        "SLACK_INTAKE_CHANNEL_ID": os.environ.get("SLACK_INTAKE_CHANNEL_ID", ""),
     }
 
     return config
@@ -382,9 +386,10 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
     )
 
     # Step 11: Send notification to VC team
-    teams_webhook = config.get("TEAMS_WEBHOOK_URL", "")
-    if teams_webhook and affinity_success:
-        _send_teams_notification(teams_webhook, validated_data, org_id)
+    slack_bot_user_oauth_token = config.get("SLACK_BOT_USER_OAUTH_TOKEN", "")
+    slack_intake_channel_id = config.get("SLACK_INTAKE_CHANNEL_ID", "")
+    if slack_bot_user_oauth_token and slack_intake_channel_id and affinity_success:
+        send_slack_notification(slack_bot_user_oauth_token, slack_intake_channel_id, validated_data)
 
     # Step 12: Return success response
     logger.info(
