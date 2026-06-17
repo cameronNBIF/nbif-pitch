@@ -5,6 +5,7 @@ from slack_sdk.errors import SlackApiError
 
 logger = logging.getLogger(__name__)
 
+
 def send_slack_notification(token: str, channel_id: str, form_data: dict) -> None:
     """
     Send a notification to the #intake Slack channel.
@@ -31,6 +32,8 @@ def send_slack_notification(token: str, channel_id: str, form_data: dict) -> Non
         client.chat_postMessage(channel=channel_id, text=text)
         logger.info(f"Slack notification sent for: {business_name}")
     except SlackApiError as e:
-        logger.error(f"Slack notification failed: {e.response['error']}. Non-critical — continuing.")
+        logger.error(
+            f"Slack notification failed: {e.response['error']}. Non-critical — continuing."
+        )
     except Exception as e:
         logger.error(f"Slack notification failed: {e}. Non-critical — continuing.")

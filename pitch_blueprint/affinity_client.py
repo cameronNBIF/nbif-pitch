@@ -321,7 +321,7 @@ def populate_list_entry(
     # ==================================================================
     # LIST-SPECIFIC FIELDS (includes list_entry_id)
     # ==================================================================
-    
+
     round_size = form_data.get("investment_round_size")
     if round_size is not None:
         _set_list("AFFINITY_FIELD_ID_INVESTMENT_ROUND_SIZE", round_size)

@@ -17,36 +17,22 @@ from azure.storage.queue import QueueClient
 
 logger = logging.getLogger(__name__)
 
-_blob_service_client = None
-_table_client_dedup = None
-_queue_client_deadletter = None
+import functools
 
 
+@functools.lru_cache(maxsize=4)
 def get_blob_service(connection_string: str) -> BlobServiceClient:
-    global _blob_service_client
-    if _blob_service_client is None:
-        _blob_service_client = BlobServiceClient.from_connection_string(
-            connection_string
-        )
-    return _blob_service_client
+    return BlobServiceClient.from_connection_string(connection_string)
 
 
+@functools.lru_cache(maxsize=4)
 def get_table_client(connection_string: str, table_name: str) -> TableClient:
-    global _table_client_dedup
-    if _table_client_dedup is None:
-        _table_client_dedup = TableClient.from_connection_string(
-            connection_string, table_name=table_name
-        )
-    return _table_client_dedup
+    return TableClient.from_connection_string(connection_string, table_name=table_name)
 
 
+@functools.lru_cache(maxsize=4)
 def get_queue_client(connection_string: str, queue_name: str) -> QueueClient:
-    global _queue_client_deadletter
-    if _queue_client_deadletter is None:
-        _queue_client_deadletter = QueueClient.from_connection_string(
-            connection_string, queue_name=queue_name
-        )
-    return _queue_client_deadletter
+    return QueueClient.from_connection_string(connection_string, queue_name=queue_name)
 
 
 # ── Blob Storage (Submission Archive) ─────────────────────────────────────

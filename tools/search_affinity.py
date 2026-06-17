@@ -40,8 +40,7 @@ def find_field(fields, field_name):
     return [
         field
         for field in fields
-        if field.get("name", "").strip().lower()
-        == field_name.strip().lower()
+        if field.get("name", "").strip().lower() == field_name.strip().lower()
     ]
 
 
