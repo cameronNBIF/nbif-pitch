@@ -23,7 +23,9 @@ def send_slack_notification(token: str, channel_id: str, form_data: dict) -> Non
         f"*Phone:* {form_data.get('phone', 'N/A')}\n"
         f"*Sector:* {form_data.get('sector', 'N/A')}\n"
         f"*Venture Stage:* {form_data.get('venture_stage', 'N/A')}\n"
-        f"*Company Profile:* {form_data.get('company_profile', 'N/A')}\n"
+        f"*Problem:* {form_data.get('company_problem', 'N/A')}\n"
+        f"*Solution:* {form_data.get('company_solution', 'N/A')}\n"
+        f"*Progress:* {form_data.get('company_progress', 'N/A')}\n"
         f"*Discovery:* {form_data.get('discovery', 'N/A')}"
     )
 

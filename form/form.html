@@ -117,18 +117,6 @@
     display: none;
   }
 
-  .nbif-pitch-form .word-count {
-    font-size: 0.8em;
-    color: #888;
-    text-align: right;
-    margin-top: 0.3em;
-  }
-
-  .nbif-pitch-form .word-count.over-limit {
-    color: #c0392b;
-    font-weight: 600;
-  }
-
   .nbif-pitch-form .form-message {
     padding: 16px;
     border-radius: 4px;
@@ -164,11 +152,14 @@
 <div class="nbif-pitch-form">
   <h2>Submit a Pitch</h2>
   <p class="form-intro">
-    Interested in pitching to NBIF? Fill out the form below and our team will review your submission and be in touch.
+    Have an ambitious idea, technology, or startup you're building in New Brunswick? We'd love to hear about it.
+    <br><br>
+    NBIF provides equity investments to early-stage, high-growth companies with the potential to scale. That means we invest capital in exchange for an ownership stake in the business and work alongside founders as long-term partners.
+    <br><br>
+    If you're seeking venture capital to help accelerate growth, complete the form below and tell us about your company. Our team will review your submission and follow up if there is a potential fit with our investment mandate.
   </p>
 
   <form id="nbifPitchForm" novalidate>
-    <!-- Row: First Name / Last Name -->
     <div class="form-row">
       <div class="form-group">
         <label for="first_name">First Name <span class="required">*</span></label>
@@ -182,14 +173,12 @@
       </div>
     </div>
 
-    <!-- Business Name -->
     <div class="form-group">
       <label for="business_name">Business Name <span class="required">*</span></label>
       <input type="text" id="business_name" name="business_name" required>
       <div class="form-error" id="err-business_name"></div>
     </div>
 
-    <!-- Row: Email / Phone -->
     <div class="form-row">
       <div class="form-group">
         <label for="email">Email <span class="required">*</span></label>
@@ -203,13 +192,11 @@
       </div>
     </div>
 
-    <!-- Website -->
     <div class="form-group">
       <label for="website">Website <span class="optional">(optional)</span></label>
       <input type="url" id="website" name="website" placeholder="https://yourcompany.com">
     </div>
 
-    <!-- Priority Sector -->
     <div class="form-group">
       <label for="sector">Priority Sector <span class="required">*</span></label>
       <select id="sector" name="sector" required>
@@ -226,7 +213,6 @@
       <div class="form-error" id="err-sector"></div>
     </div>
 
-    <!-- Venture Stage -->
     <div class="form-group">
       <label for="venture_stage">Venture Stage <span class="required">*</span></label>
       <select id="venture_stage" name="venture_stage" required>
@@ -240,54 +226,56 @@
       <div class="form-error" id="err-venture_stage"></div>
     </div>
 
-    <!-- Date of Incorporation -->
     <div class="form-group">
       <label for="date_of_incorporation">Incorporation date, if incorporated <span class="optional">(optional)</span></label>
       <input type="date" id="date_of_incorporation" name="date_of_incorporation">
     </div>
 
-    <!-- Company Profile -->
     <div class="form-group">
-      <label for="company_profile">Company Profile <span class="optional">(optional, max 150 words)</span></label>
-      <textarea id="company_profile" name="company_profile" placeholder="Briefly describe your company, what you do, and the problem you solve..."></textarea>
-      <div class="word-count" id="company_profile_count">0 / 150 words</div>
-      <div class="form-error" id="err-company_profile"></div>
+      <label for="company_problem">What problem are you solving? Describe the challenge your customers face and why it matters. <span class="optional">(optional)</span></label>
+      <textarea id="company_problem" name="company_problem"></textarea>
     </div>
 
-    <!-- Row: Investment Round Size / Potential Investment Amount -->
-    <div class="form-row">
-      <div class="form-group">
-        <label for="investment_round_size">What is the total amount being raised in your current financing round?  ($) <span class="optional">(optional)</span></label>
-        <input type="number" id="investment_round_size" name="investment_round_size" min="0" step="1" placeholder="e.g. 500000">
-      </div>
-      <div class="form-group">
-        <label for="potential_investment_amount">How much investment are you seeking from NBIF?   ($) <span class="optional">(optional)</span></label>
-        <input type="number" id="potential_investment_amount" name="potential_investment_amount" min="0" step="1" placeholder="e.g. 100000">
-      </div>
+    <div class="form-group">
+      <label for="company_solution">What solution have you developed? Tell us about your product, technology, or service and what makes it unique. <span class="optional">(optional)</span></label>
+      <textarea id="company_solution" name="company_solution"></textarea>
     </div>
 
-    <!-- Discovery -->
+    <div class="form-group">
+      <label for="company_progress">What progress have you made so far? Share any milestones you've achieved, such as product development, customer validation, pilots, revenue, partnerships, intellectual property, or other indicators of growth. <span class="optional">(optional)</span></label>
+      <textarea id="company_progress" name="company_progress"></textarea>
+    </div>
+
     <div class="form-group">
       <label for="discovery">How did you hear about NBIF? <span class="optional">(optional)</span></label>
-      <input type="text" id="discovery" name="discovery" placeholder="e.g. Referral, website, event...">
+      <select id="discovery" name="discovery">
+        <option value="">Select an option...</option>
+        <option value="Referral">Referral</option>
+        <option value="Website">Website</option>
+        <option value="Word of Mouth">Word of Mouth</option>
+        <option value="Social Media">Social Media</option>
+        <option value="Other">Other</option>
+      </select>
     </div>
 
-    <!-- Accelerators -->
+    <!-- Conditional Discovery Field -->
+    <div class="form-group conditional-field" id="discovery_other_group">
+      <label for="discovery_other">Please specify <span class="optional">(optional)</span></label>
+      <input type="text" id="discovery_other" name="discovery_other" placeholder="e.g. A specific event or person">
+    </div>
+
     <div class="form-group">
       <label for="accelerators">Have you participated in any accelerator program, if so, please list them <span class="optional">(optional)</span></label>
       <input type="text" id="accelerators" name="accelerators" placeholder="e.g. Propel ICT, Energia Ventures, Venn Innovation...">
     </div>
 
-    <!-- Turnstile CAPTCHA -->
     <div class="form-group">
       <div class="cf-turnstile" data-sitekey="0x4AAAAAADdxA0a6pFBdP5eT" data-theme="light"></div>
       <div class="form-error" id="err-captcha"></div>
     </div>
 
-    <!-- Submit -->
     <button type="submit" id="submitBtn">Submit Pitch</button>
 
-    <!-- Messages -->
     <div class="form-message" id="formMessage"></div>
   </form>
 </div>
@@ -302,28 +290,18 @@
   var submitBtn = document.getElementById('submitBtn');
   var messageDiv = document.getElementById('formMessage');
 
-  // Word count for company profile
-  
-  var companyProfileField = document.getElementById('company_profile');
-  var wordCountDisplay = document.getElementById('company_profile_count');
-  var MAX_WORDS = 150;
+  // Toggle Conditional "Other" Discovery Field
+  var discoverySelect = document.getElementById('discovery');
+  var discoveryOtherGroup = document.getElementById('discovery_other_group');
 
-  function countWords(text) {
-    var trimmed = text.trim();
-    if (!trimmed) return 0;
-    return trimmed.split(/\s+/).length;
-  }
-
-  companyProfileField.addEventListener('input', function() {
-    var count = countWords(this.value);
-    wordCountDisplay.textContent = count + ' / ' + MAX_WORDS + ' words';
-    if (count > MAX_WORDS) {
-      wordCountDisplay.className = 'word-count over-limit';
+  discoverySelect.addEventListener('change', function() {
+    if (this.value === 'Other') {
+      discoveryOtherGroup.classList.add('visible');
     } else {
-      wordCountDisplay.className = 'word-count';
+      discoveryOtherGroup.classList.remove('visible');
+      document.getElementById('discovery_other').value = ''; // Clear value when hidden
     }
   });
-
 
   // ── Client-side validation ──────────────────────────────────────
 
@@ -389,16 +367,6 @@
       valid = false;
     }
 
-    // Company Profile word count
-    var profileText = (form.elements['company_profile'].value || '').trim();
-    if (profileText) {
-      var wordCount = profileText.split(/\s+/).length;
-      if (wordCount > 150) {
-        showError('company_profile', 'Company Profile cannot exceed 150 words (currently ' + wordCount + ' words).');
-        valid = false;
-      }
-    }
-
     return valid;
   }
 
@@ -426,16 +394,22 @@
     formData.append('sector', form.elements['sector'].value);
     formData.append('venture_stage', form.elements['venture_stage'].value);
     formData.append('date_of_incorporation', form.elements['date_of_incorporation'].value);
-    formData.append('company_profile', form.elements['company_profile'].value.trim());
-    formData.append('discovery', form.elements['discovery'].value.trim());
+    
+    // New multi-part profile fields
+    formData.append('company_problem', form.elements['company_problem'].value.trim());
+    formData.append('company_solution', form.elements['company_solution'].value.trim());
+    formData.append('company_progress', form.elements['company_progress'].value.trim());
+    
+    // Discovery Field Logic
+    var discoveryVal = form.elements['discovery'].value;
+    if (discoveryVal === 'Other') {
+      var otherVal = form.elements['discovery_other'].value.trim();
+      formData.append('discovery', otherVal ? 'Other: ' + otherVal : 'Other');
+    } else {
+      formData.append('discovery', discoveryVal);
+    }
+
     formData.append('accelerators', form.elements['accelerators'].value.trim());
-
-    // Number fields — send only if provided
-    var roundSize = form.elements['investment_round_size'].value;
-    if (roundSize) formData.append('investment_round_size', roundSize);
-
-    var potentialAmount = form.elements['potential_investment_amount'].value;
-    if (potentialAmount) formData.append('potential_investment_amount', potentialAmount);
 
     // Turnstile token
     var turnstileInput = form.querySelector('input[name="cf-turnstile-response"]');
@@ -460,6 +434,10 @@
         messageDiv.textContent = 'Thank you for your submission! Our team will review your pitch and be in touch.';
         messageDiv.style.display = 'block';
         form.reset();
+        
+        // Hide conditional field on reset
+        document.getElementById('discovery_other_group').classList.remove('visible');
+
         // Reset Turnstile widget for a fresh token
         if (window.turnstile) window.turnstile.reset();
         // Hide the form fields
