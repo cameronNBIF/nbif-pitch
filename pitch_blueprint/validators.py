@@ -14,8 +14,6 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-MAX_COMPANY_PROFILE_WORDS = 150
-
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 # Valid dropdown values — must match the form <option> values exactly
@@ -116,46 +114,20 @@ def validate_submission(
         form_data.get("date_of_incorporation") or ""
     ).strip()
 
-    # ── Company Profile (optional, text) ──────────────────────────────
+    # ── Company Problem (optional, text) ──────────────────────────────
+    # Form label: "What is the main problem your company is trying to solve?"
 
-    company_profile = (form_data.get("company_profile") or "").strip()
-    if company_profile:
-        word_count = len(company_profile.split())
-        if word_count > MAX_COMPANY_PROFILE_WORDS:
-            errors.append(
-                f"Company Profile exceeds {MAX_COMPANY_PROFILE_WORDS} words "
-                f"(currently {word_count} words)."
-            )
-    validated["company_profile"] = company_profile
+    validated["company_problem"] = (form_data.get("company_problem") or "").strip()
 
-    # ── Investment Round Size (optional, number) ──────────────────────
+    # ── Company Solution (optional, text) ──────────────────────────────
+    # Form label: "What is your company's solution to this problem?"
 
-    round_size_raw = (form_data.get("investment_round_size") or "").strip()
-    if round_size_raw:
-        try:
-            cleaned = round_size_raw.replace(",", "").replace("$", "").replace(" ", "")
-            validated["investment_round_size"] = float(cleaned)
-        except ValueError:
-            errors.append(
-                f"Invalid Investment Round Size: '{round_size_raw}'. Must be a number."
-            )
-    else:
-        validated["investment_round_size"] = None
+    validated["company_solution"] = (form_data.get("company_solution") or "").strip()
 
-    # ── Potential Investment Amount (optional, number) ─────────────────
+    # ── Company Progress (optional, text) ──────────────────────────────
+    # Form label: "What is the current stage of your company's development?"
 
-    potential_raw = (form_data.get("potential_investment_amount") or "").strip()
-    if potential_raw:
-        try:
-            cleaned = potential_raw.replace(",", "").replace("$", "").replace(" ", "")
-            validated["potential_investment_amount"] = float(cleaned)
-        except ValueError:
-            errors.append(
-                f"Invalid Potential Investment Amount: '{potential_raw}'. "
-                f"Must be a number."
-            )
-    else:
-        validated["potential_investment_amount"] = None
+    validated["company_progress"] = (form_data.get("company_progress") or "").strip()
 
     # ── Discovery (optional, text) ────────────────────────────────────
     # Form label: "How did you hear about NBIF?"

@@ -297,9 +297,17 @@ def populate_list_entry(
     if sector:
         _set_global("AFFINITY_FIELD_ID_PRIORITY_SECTOR", sector)
 
-    company_profile = form_data.get("company_profile", "")
-    if company_profile:
-        _set_global("AFFINITY_FIELD_ID_COMPANY_PROFILE", company_profile)
+    company_problem = form_data.get("company_problem", "")
+    if company_problem:
+        _set_global("AFFINITY_FIELD_ID_COMPANY_PROBLEM", company_problem)
+
+    company_solution = form_data.get("company_solution", "")
+    if company_solution:
+        _set_global("AFFINITY_FIELD_ID_COMPANY_SOLUTION", company_solution)
+
+    company_progress = form_data.get("company_progress", "")
+    if company_progress:
+        _set_global("AFFINITY_FIELD_ID_COMPANY_PROGRESS", company_progress)
 
     venture_stage = form_data.get("venture_stage", "")
     if venture_stage:
