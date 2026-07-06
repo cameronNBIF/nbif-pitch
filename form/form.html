@@ -147,12 +147,81 @@
       gap: 0;
     }
   }
+
+  .nbif-pitch-form .ms-wrap {
+    position: relative;
+  }
+
+  .nbif-pitch-form .ms-trigger {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 1em;
+    font-family: inherit;
+    color: #333;
+  }
+
+  .nbif-pitch-form .ms-trigger:focus {
+    outline: none;
+    border-color: #2a5aa7;
+    box-shadow: 0 0 0 2px rgba(42, 90, 167, 0.15);
+  }
+
+  .nbif-pitch-form .ms-trigger .placeholder {
+    color: #888;
+  }
+
+  .nbif-pitch-form .ms-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 10;
+    padding: 4px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .nbif-pitch-form .ms-panel.open {
+    display: block;
+  }
+
+  .nbif-pitch-form .ms-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95em;
+  }
+
+  .nbif-pitch-form .ms-option:hover {
+    background: #f2f6fb;
+  }
+
+  .nbif-pitch-form .ms-option input {
+    margin: 0;
+    flex-shrink: 0;
+  }
 </style>
 
 <div class="nbif-pitch-form">
-  <h2>Book a Call</h2>
+  <h2>Submit a Pitch</h2>
   <p class="form-intro">
-    Have an ambitious idea, technology, or startup you're building in New Brunswick? We'd love to hear about it.
+    Have an ambitious idea, technology, or startup you're building in New Brunswick? If you're seeking venture capital and are prepared to exchange equity for investment, we'd love to hear about it.
     <br><br>
     NBIF provides equity investments to early-stage, high-growth companies with the potential to scale. That means we invest capital in exchange for an ownership stake in the business and work alongside founders as long-term partners.
     <br><br>
@@ -265,8 +334,22 @@
     </div>
 
     <div class="form-group">
-      <label for="accelerators">Have you participated in any accelerator program, if so, please list them <span class="optional">(optional)</span></label>
-      <input type="text" id="accelerators" name="accelerators" placeholder="e.g. Propel ICT, Energia Ventures, Venn Innovation...">
+      <label for="acceleratorsTrigger">Have you participated in any accelerator program, if so, please list them <span class="optional">(optional)</span></label>
+      <div class="ms-wrap" id="acceleratorsWrap">
+        <button type="button" class="ms-trigger" id="acceleratorsTrigger" aria-haspopup="listbox" aria-expanded="false">
+          <span id="acceleratorsTriggerText" class="placeholder">Select accelerator programs...</span>
+          <span aria-hidden="true">▾</span>
+        </button>
+        <div class="ms-panel" id="acceleratorsPanel" role="listbox" aria-multiselectable="true">
+          <label class="ms-option"><input type="checkbox" value="ConnexionWorks"> ConnexionWorks</label>
+          <label class="ms-option"><input type="checkbox" value="UNB J. Herbert Smith Centre for Technology Management and Entrepreneurship"> UNB J. Herbert Smith Centre for Technology Management and Entrepreneurship</label>
+          <label class="ms-option"><input type="checkbox" value="Axis Accelerator"> Axis Accelerator</label>
+          <label class="ms-option"><input type="checkbox" value="Venn Innovation"> Venn Innovation</label>
+          <label class="ms-option"><input type="checkbox" value="Planet Hatch at Ignite Fredericton"> Planet Hatch at Ignite Fredericton</label>
+          <label class="ms-option"><input type="checkbox" value="Propel ICT"> Propel ICT</label>
+        </div>
+      </div>
+      <input type="hidden" id="accelerators" name="accelerators" value="">
     </div>
 
     <div class="form-group">
@@ -274,7 +357,7 @@
       <div class="form-error" id="err-captcha"></div>
     </div>
 
-    <button type="submit" id="submitBtn">Submit</button>
+    <button type="submit" id="submitBtn">Submit Pitch</button>
 
     <div class="form-message" id="formMessage"></div>
   </form>
@@ -301,6 +384,55 @@
       discoveryOtherGroup.classList.remove('visible');
       document.getElementById('discovery_other').value = ''; // Clear value when hidden
     }
+  });
+
+  // Accelerators multi-select dropdown
+  var acceleratorsWrap = document.getElementById('acceleratorsWrap');
+  var acceleratorsTrigger = document.getElementById('acceleratorsTrigger');
+  var acceleratorsPanel = document.getElementById('acceleratorsPanel');
+  var acceleratorsTriggerText = document.getElementById('acceleratorsTriggerText');
+  var acceleratorsHidden = document.getElementById('accelerators');
+
+  function updateAcceleratorsSelection() {
+    var checked = Array.prototype.filter
+      .call(acceleratorsPanel.querySelectorAll('input[type="checkbox"]'), function(cb) { return cb.checked; })
+      .map(function(cb) { return cb.value; });
+
+    acceleratorsHidden.value = checked.join(', ');
+
+    if (checked.length === 0) {
+      acceleratorsTriggerText.textContent = 'Select accelerator programs...';
+      acceleratorsTriggerText.className = 'placeholder';
+    } else if (checked.length <= 2) {
+      acceleratorsTriggerText.textContent = checked.join(', ');
+      acceleratorsTriggerText.className = '';
+    } else {
+      acceleratorsTriggerText.textContent = checked.length + ' selected';
+      acceleratorsTriggerText.className = '';
+    }
+  }
+
+  acceleratorsPanel.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+    cb.addEventListener('change', updateAcceleratorsSelection);
+  });
+
+  acceleratorsTrigger.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var isOpen = acceleratorsPanel.classList.toggle('open');
+    acceleratorsTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!acceleratorsWrap.contains(e.target)) {
+      acceleratorsPanel.classList.remove('open');
+      acceleratorsTrigger.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // Native form.reset() clears the checkboxes but doesn't fire 'change',
+  // so re-sync the hidden field and label text after a reset.
+  form.addEventListener('reset', function() {
+    setTimeout(updateAcceleratorsSelection, 0);
   });
 
   // ── Client-side validation ──────────────────────────────────────
@@ -409,7 +541,7 @@
       formData.append('discovery', discoveryVal);
     }
 
-    formData.append('accelerators', form.elements['accelerators'].value.trim());
+    formData.append('accelerators', form.elements['accelerators'].value);
 
     // Turnstile token
     var turnstileInput = form.querySelector('input[name="cf-turnstile-response"]');
