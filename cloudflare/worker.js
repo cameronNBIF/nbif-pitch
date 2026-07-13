@@ -4,6 +4,9 @@ export default {
       "https://dogfish-wedge-yb33.squarespace.com",
       "https://koi-chameleon-7kz5.squarespace.com",
       "https://nbif.ca",
+      "https://www.nbif.ca",
+      "https://finb.ca",
+      "https://www.finb.ca",
     ];
 
     const origin = request.headers.get("Origin");
