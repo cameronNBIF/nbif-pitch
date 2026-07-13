@@ -6,10 +6,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_KEY = os.getenv("AFFINITY_API_KEY")
-LIST_ID = os.getenv("AFFINITY_LIST_ID_MASTER")
+LIST_ID = os.getenv("AFFINITY_LIST_ID")
 
 # Gather the specific field IDs from your .env to filter the API response
 ENV_FIELD_IDS = {
+    os.getenv("AFFINITY_FIELD_ID_STATUS"),
     os.getenv("AFFINITY_FIELD_ID_CONTACT"),
     os.getenv("AFFINITY_FIELD_ID_CONTACT_EMAIL"),
     os.getenv("AFFINITY_FIELD_ID_CONTACT_PHONE_NUMBER"),
