@@ -1,14 +1,3 @@
-<!--
-  NOTE: This form depends on the Cloudflare Turnstile loader script
-  (challenges.cloudflare.com/turnstile/v0/api.js), which is NOT included
-  in this file. It's injected page-wide via Squarespace:
-    Website > Pages > *desired page* > Page Settings > Advanced > Page Header Code Injection
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  If you're setting up a new page/language variant and the widget isn't
-  rendering, check that this script is present there before debugging
-  anything else. See README.md → "External Dependencies" for details.
--->
-
 <style>
   /* ── NBIF Pitch Intake Form Styles ────────────────────────────── */
   .nbif-pitch-form {
@@ -230,7 +219,7 @@
 </style>
 
 <div class="nbif-pitch-form">
-  <h2>Submit a Pitch</h2>
+  <h2>Book a Call</h2>
   <p class="form-intro">
     Have an ambitious idea, technology, or startup you're building in New Brunswick? If you're seeking venture capital and are prepared to exchange equity for investment, we'd love to hear about it.
     <br><br>
@@ -574,7 +563,7 @@
       if (result.ok) {
         // Success
         messageDiv.className = 'form-message success';
-        messageDiv.textContent = 'Thank you for your submission! Our team will review your pitch and be in touch.';
+        messageDiv.textContent = 'Thank you! Our team will review your submission and will be in touch.';
         messageDiv.style.display = 'block';
         form.reset();
         
