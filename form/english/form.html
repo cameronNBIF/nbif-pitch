@@ -110,6 +110,31 @@
     cursor: not-allowed;
   }
 
+  .nbif-pitch-form .word-counter {
+    font-size: 0.82em;
+    color: #666;
+    margin-top: 0.35em;
+    text-align: right;
+  }
+
+  .nbif-pitch-form .word-counter.near-limit {
+    color: #b7791f;
+  }
+
+  .nbif-pitch-form .word-counter.over-limit {
+    color: #c0392b;
+    font-weight: 600;
+  }
+
+  .nbif-pitch-form textarea.over-limit {
+    border-color: #c0392b;
+  }
+
+  .nbif-pitch-form textarea.over-limit:focus {
+    border-color: #c0392b;
+    box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.15);
+  }
+
   .nbif-pitch-form .form-error {
     color: #c0392b;
     font-size: 0.85em;
@@ -309,18 +334,24 @@
     </div>
 
     <div class="form-group">
-      <label for="company_problem">What problem are you solving? Describe the challenge your customers face and why it matters. <span class="optional">(optional)</span></label>
-      <textarea id="company_problem" name="company_problem"></textarea>
+      <label for="company_problem">What problem are you solving? Describe the challenge your customers face and why it matters. <span class="required">*</span></label>
+      <textarea id="company_problem" name="company_problem" required data-word-limit="350"></textarea>
+      <div class="word-counter" id="count-company_problem"></div>
+      <div class="form-error" id="err-company_problem"></div>
     </div>
 
     <div class="form-group">
-      <label for="company_solution">What solution have you developed? Tell us about your product, technology, or service and what makes it unique. <span class="optional">(optional)</span></label>
-      <textarea id="company_solution" name="company_solution"></textarea>
+      <label for="company_solution">What solution have you developed? Tell us about your product, technology, or service and what makes it unique. <span class="required">*</span></label>
+      <textarea id="company_solution" name="company_solution" required data-word-limit="350"></textarea>
+      <div class="word-counter" id="count-company_solution"></div>
+      <div class="form-error" id="err-company_solution"></div>
     </div>
 
     <div class="form-group">
-      <label for="company_progress">What progress have you made so far? List any milestones you've achieved, such as product development, customer validation, pilots, revenue, partnerships, intellectual property, or other indicators of growth. <span class="optional">(optional)</span></label>
-      <textarea id="company_progress" name="company_progress"></textarea>
+      <label for="company_progress">What progress have you made so far? List any milestones you've achieved, such as product development, customer validation, pilots, revenue, partnerships, intellectual property, or other indicators of growth. <span class="required">*</span></label>
+      <textarea id="company_progress" name="company_progress" required data-word-limit="350"></textarea>
+      <div class="word-counter" id="count-company_progress"></div>
+      <div class="form-error" id="err-company_progress"></div>
     </div>
 
     <div class="form-group">
@@ -365,7 +396,7 @@
       <div class="form-error" id="err-captcha"></div>
     </div>
 
-    <button type="submit" id="submitBtn">Submit Pitch</button>
+    <button type="submit" id="submitBtn">Book a Call</button>
 
     <div class="form-message" id="formMessage"></div>
   </form>
@@ -443,6 +474,66 @@
     setTimeout(updateAcceleratorsSelection, 0);
   });
 
+  // ── Word limits ─────────────────────────────────────────────────
+
+  // The three long-answer questions: required, and capped by their
+  // data-word-limit attribute in the markup.
+  var LONG_ANSWER_FIELDS = [
+    { id: 'company_problem',  message: 'Please describe the problem you are solving.' },
+    { id: 'company_solution', message: 'Please describe the solution you have developed.' },
+    { id: 'company_progress', message: 'Please describe the progress you have made so far.' }
+  ];
+
+  function countWords(text) {
+    var trimmed = (text || '').trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).length;
+  }
+
+  function getWordLimit(textarea) {
+    return parseInt(textarea.getAttribute('data-word-limit'), 10) || 0;
+  }
+
+  function updateWordCounter(textarea) {
+    var counter = document.getElementById('count-' + textarea.id);
+    var limit = getWordLimit(textarea);
+    if (!counter || !limit) return;
+
+    var remaining = limit - countWords(textarea.value);
+
+    counter.className = 'word-counter';
+    textarea.classList.remove('over-limit');
+
+    if (remaining < 0) {
+      var over = Math.abs(remaining);
+      counter.textContent = over + (over === 1 ? ' word' : ' words') + ' over the ' + limit + '-word limit';
+      counter.className = 'word-counter over-limit';
+      textarea.classList.add('over-limit');
+    } else {
+      counter.textContent = remaining + (remaining === 1 ? ' word' : ' words') + ' remaining of ' + limit;
+      if (remaining <= 50) counter.className = 'word-counter near-limit';
+    }
+  }
+
+  LONG_ANSWER_FIELDS.forEach(function(question) {
+    var textarea = document.getElementById(question.id);
+    if (!textarea) return;
+    textarea.addEventListener('input', function() { updateWordCounter(textarea); });
+    // 'input' misses some paste/autofill paths in older browsers
+    textarea.addEventListener('change', function() { updateWordCounter(textarea); });
+    updateWordCounter(textarea); // set the initial count on page load
+  });
+
+  // Re-sync counters after a native form.reset()
+  form.addEventListener('reset', function() {
+    setTimeout(function() {
+      LONG_ANSWER_FIELDS.forEach(function(question) {
+        var textarea = document.getElementById(question.id);
+        if (textarea) updateWordCounter(textarea);
+      });
+    }, 0);
+  });
+
   // ── Client-side validation ──────────────────────────────────────
 
   function clearErrors() {
@@ -498,6 +589,25 @@
     if (!form.elements['venture_stage'].value) {
       showError('venture_stage', 'Please select a venture stage.');
       valid = false;
+    }
+
+    // Required long-answer questions, and their word limits
+    for (var w = 0; w < LONG_ANSWER_FIELDS.length; w++) {
+      var question = LONG_ANSWER_FIELDS[w];
+      var textarea = document.getElementById(question.id);
+      if (!textarea) continue;
+
+      var answer = (textarea.value || '').trim();
+      var limit = getWordLimit(textarea);
+      var used = countWords(answer);
+
+      if (!answer) {
+        showError(question.id, question.message);
+        valid = false;
+      } else if (limit && used > limit) {
+        showError(question.id, 'Please shorten this answer to ' + limit + ' words or fewer. You currently have ' + used + '.');
+        valid = false;
+      }
     }
 
     // Turnstile token
@@ -596,7 +706,7 @@
         messageDiv.style.display = 'block';
         // Re-enable submit
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Pitch';
+        submitBtn.textContent = 'Book a Call';
         // Reset Turnstile for a fresh token
         if (window.turnstile) window.turnstile.reset();
       }
@@ -606,7 +716,7 @@
       messageDiv.textContent = 'A network error occurred. Please check your connection and try again.';
       messageDiv.style.display = 'block';
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit Pitch';
+      submitBtn.textContent = 'Book a Call';
       if (window.turnstile) window.turnstile.reset();
     });
   });
