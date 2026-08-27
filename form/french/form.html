@@ -378,9 +378,16 @@
           <label class="ms-option"><input type="checkbox" value="Venn Innovation"> Venn Innovation</label>
           <label class="ms-option"><input type="checkbox" value="Planet Hatch at Ignite Fredericton">Planet Hatch à Ignite Fredericton</label>
           <label class="ms-option"><input type="checkbox" value="Propel ICT"> Propel ICT</label>
+          <label class="ms-option"><input type="checkbox" value="Other"> Autre</label>
         </div>
       </div>
       <input type="hidden" id="accelerators" name="accelerators" value="">
+    </div>
+
+    <!-- Conditional Accelerators Field -->
+    <div class="form-group conditional-field" id="accelerators_other_group">
+      <label for="accelerators_other">Veuillez préciser<span class="optional">(facultatif)</span></label>
+      <input type="text" id="accelerators_other" name="accelerators_other" placeholder="p. ex. Un autre programme d'accélération">
     </div>
 
     <div class="form-group">
@@ -423,13 +430,26 @@
   var acceleratorsPanel = document.getElementById('acceleratorsPanel');
   var acceleratorsTriggerText = document.getElementById('acceleratorsTriggerText');
   var acceleratorsHidden = document.getElementById('accelerators');
+  var acceleratorsOtherGroup = document.getElementById('accelerators_other_group');
+  var acceleratorsOtherInput = document.getElementById('accelerators_other');
 
   function updateAcceleratorsSelection() {
     var checked = Array.prototype.filter
       .call(acceleratorsPanel.querySelectorAll('input[type="checkbox"]'), function(cb) { return cb.checked; })
       .map(function(cb) { return cb.value; });
 
-    acceleratorsHidden.value = checked.join(', ');
+    // The free-form field is only shown while "Other" is checked.
+    if (checked.indexOf('Other') !== -1) {
+      acceleratorsOtherGroup.classList.add('visible');
+    } else {
+      acceleratorsOtherGroup.classList.remove('visible');
+      acceleratorsOtherInput.value = ''; // Clear value when hidden
+    }
+
+    var otherVal = acceleratorsOtherInput.value.trim();
+    acceleratorsHidden.value = checked.map(function(value) {
+      return (value === 'Other' && otherVal) ? 'Other: ' + otherVal : value;
+    }).join(', ');
 
     if (checked.length === 0) {
       acceleratorsTriggerText.textContent = 'Select accelerator programs...';
@@ -446,6 +466,8 @@
   acceleratorsPanel.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
     cb.addEventListener('change', updateAcceleratorsSelection);
   });
+
+  acceleratorsOtherInput.addEventListener('input', updateAcceleratorsSelection);
 
   acceleratorsTrigger.addEventListener('click', function(e) {
     e.stopPropagation();
@@ -677,8 +699,9 @@
         messageDiv.style.display = 'block';
         form.reset();
         
-        // Hide conditional field on reset
+        // Hide conditional fields on reset
         document.getElementById('discovery_other_group').classList.remove('visible');
+        document.getElementById('accelerators_other_group').classList.remove('visible');
 
         // Reset Turnstile widget for a fresh token
         if (window.turnstile) window.turnstile.reset();
