@@ -60,9 +60,9 @@ def archive_submission(
     now = datetime.now(timezone.utc)
     date_folder = now.strftime("%Y-%m-%d")
     timestamp = now.strftime("%Y%m%dT%H%M%SZ")
-    business_slug = slugify(form_data.get("business_name", "unknown"))
+    company_slug = slugify(form_data.get("company_name", "unknown"))
 
-    blob_path = f"{date_folder}/{timestamp}_{business_slug}.json"
+    blob_path = f"{date_folder}/{timestamp}_{company_slug}.json"
 
     archive_data = {
         "submission_id": submission_id,
@@ -135,18 +135,18 @@ def check_duplicate(
     connection_string: str,
     table_name: str,
     email: str,
-    business_name: str,
+    company_name: str,
     window_seconds: int = 60,
 ) -> bool:
     """
     Check if a duplicate submission exists within the time window.
-    Uses a hash of (email + business_name) as the fingerprint.
+    Uses a hash of (email + company_name) as the fingerprint.
 
     Returns:
         True if a duplicate exists (submission should be rejected), False otherwise.
     """
     fingerprint = hashlib.sha256(
-        f"{email.lower().strip()}|{business_name.lower().strip()}".encode()
+        f"{email.lower().strip()}|{company_name.lower().strip()}".encode()
     ).hexdigest()[:32]
 
     table_client = get_table_client(connection_string, table_name)
@@ -179,14 +179,14 @@ def record_submission_fingerprint(
     connection_string: str,
     table_name: str,
     email: str,
-    business_name: str,
+    company_name: str,
     submission_id: str,
 ) -> None:
     """
     Record a submission fingerprint in Table Storage for future dedup checks.
     """
     fingerprint = hashlib.sha256(
-        f"{email.lower().strip()}|{business_name.lower().strip()}".encode()
+        f"{email.lower().strip()}|{company_name.lower().strip()}".encode()
     ).hexdigest()[:32]
 
     timestamp_key = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -198,7 +198,7 @@ def record_submission_fingerprint(
         "RowKey": timestamp_key,
         "SubmissionId": submission_id,
         "Email": email,
-        "BusinessName": business_name,
+        "CompanyName": company_name,
     }
 
     try:

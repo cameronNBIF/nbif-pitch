@@ -62,7 +62,7 @@ def validate_submission(
     required_text_fields = [
         ("first_name", "First Name"),
         ("last_name", "Last Name"),
-        ("business_name", "Business Name"),
+        ("company_name", "Company Name"),
         ("email", "Email"),
         ("phone", "Phone Number"),
     ]

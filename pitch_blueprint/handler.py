@@ -125,7 +125,7 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         form_data_raw = {
             "first_name": form.get("first_name", ""),
             "last_name": form.get("last_name", ""),
-            "business_name": form.get("business_name", ""),
+            "company_name": form.get("company_name", ""),
             "email": form.get("email", ""),
             "phone": form.get("phone", ""),
             "website": form.get("website", ""),
@@ -143,7 +143,7 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
 
         logger.info(
             f"[{submission_id}] Form data extracted. "
-            f"Business: {form_data_raw.get('business_name')}, "
+            f"Company: {form_data_raw.get('company_name')}, "
             f"Email: {form_data_raw.get('email')}"
         )
 
@@ -184,13 +184,13 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         config["STORAGE_CONN_STR"],
         config["TABLE_DEDUP"],
         validated_data["email"],
-        validated_data["business_name"],
+        validated_data["company_name"],
     ):
         logger.warning(f"[{submission_id}] Duplicate submission detected.")
         return func.HttpResponse(
             json.dumps(
                 {
-                    "error": "A submission with this email and business name was "
+                    "error": "A submission with this email and company name was "
                     "received very recently. Please wait a moment before "
                     "resubmitting."
                 }
@@ -204,7 +204,7 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         config["STORAGE_CONN_STR"],
         config["TABLE_DEDUP"],
         validated_data["email"],
-        validated_data["business_name"],
+        validated_data["company_name"],
         submission_id,
     )
 
@@ -252,7 +252,7 @@ def pitch_intake(req: func.HttpRequest) -> func.HttpResponse:
         domain = extract_domain(validated_data.get("website", ""))
         org_id = resolve_or_create_organization(
             api_key,
-            validated_data["business_name"],
+            validated_data["company_name"],
             domain,
         )
         logger.info(f"[{submission_id}] Organization resolved/created: {org_id}")

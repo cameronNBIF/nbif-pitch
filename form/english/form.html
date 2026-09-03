@@ -276,9 +276,9 @@
     </div>
 
     <div class="form-group">
-      <label for="business_name">Business Name <span class="required">*</span></label>
-      <input type="text" id="business_name" name="business_name" required>
-      <div class="form-error" id="err-business_name"></div>
+      <label for="company_name">Company Name <span class="required">*</span></label>
+      <input type="text" id="company_name" name="company_name" required>
+      <div class="form-error" id="err-company_name"></div>
     </div>
 
     <div class="form-row">
@@ -582,7 +582,7 @@
     var required = [
       { id: 'first_name', label: 'First Name' },
       { id: 'last_name', label: 'Last Name' },
-      { id: 'business_name', label: 'Business Name' },
+      { id: 'company_name', label: 'Company Name' },
       { id: 'email', label: 'Email' },
       { id: 'phone', label: 'Phone Number' }
     ];
@@ -659,7 +659,7 @@
     var formData = new FormData();
     formData.append('first_name', form.elements['first_name'].value.trim());
     formData.append('last_name', form.elements['last_name'].value.trim());
-    formData.append('business_name', form.elements['business_name'].value.trim());
+    formData.append('company_name', form.elements['company_name'].value.trim());
     formData.append('email', form.elements['email'].value.trim());
     formData.append('phone', form.elements['phone'].value.trim());
     formData.append('website', form.elements['website'].value.trim());
