@@ -17,11 +17,11 @@ This project is an Azure Function App that serves as the backend for the NBIF Pi
 
 1. **Submission Arrival:** The HTML frontend form sends a POST request containing the form data and a Cloudflare Turnstile CAPTCHA token to the Azure Function's HTTP Trigger (`pitch-intake`).
 2. **Verification & Validation:** The function verifies the CAPTCHA token against the Cloudflare API. It then validates the form payload (required fields, email regex, and exact dropdown option mapping).
-3. **Deduplication Check:** The function generates a SHA-256 fingerprint using the submitter's email and business name. It queries Azure Table Storage to check for and reject duplicate submissions made within a 60-second window.
+3. **Deduplication Check:** The function generates a SHA-256 fingerprint using the submitter's email and company name. It queries Azure Table Storage to check for and reject duplicate submissions made within a 60-second window.
 4. **Raw Archiving:** Before interacting with the CRM, the raw, validated submission is saved as a JSON file in Azure Blob Storage. This ensures no data is lost if downstream APIs fail.
 5. **Affinity CRM Sync:**
    * **Person Resolution:** The function queries Affinity for an existing Person using the founder's email address. If no match is found, a new Person is created.
-   * **Organization Resolution:** The function queries Affinity for an Organization using the business name. If no match is found, a new Organization is created.
+   * **Organization Resolution:** The function queries Affinity for an Organization using the company name. If no match is found, a new Organization is created.
    * **List Entry Creation:** The Organization is added to the specified Pitch Intake list.
    * **Field Population:** Global fields (e.g., Sector, Company Profile) are applied to the Organization entity, and list-specific fields (e.g., Investment Round Size, Potential Investment Amount) are applied directly to the list entry via `POST` requests.
 6. **Post-Processing & Notifications:** The Azure Blob Storage archive is updated to include the newly generated Affinity IDs. Finally, an Adaptive Card summarizing the pitch is sent to a Microsoft Teams channel via a webhook.
